@@ -2,6 +2,8 @@
 
 import type { User } from "../types"
 import { Bell, Search, ChevronDown, Settings } from "lucide-react"
+import { logout } from "../../../../utils/auth"
+import { useRouter } from "next/navigation"
 
 interface TopNavProps {
   user: User
@@ -10,6 +12,12 @@ interface TopNavProps {
 }
 
 export default function TopNav({ user, title, onSettingsClick }: TopNavProps) {
+  const router = useRouter()
+  const handleLogout = async () => {
+    await logout()
+    router.push("/login")
+  }
+
   return (
     <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
@@ -56,6 +64,12 @@ export default function TopNav({ user, title, onSettingsClick }: TopNavProps) {
             <div className="hidden md:block">
               <div className="text-sm font-medium text-gray-900">{user.name}</div>
               <div className="text-xs text-gray-500">{user.role}</div>
+              <button
+                onClick={handleLogout}
+                className="mt-1 text-xs text-red-500 hover:underline focus:outline-none"
+              >
+                Logout
+              </button>
             </div>
             <ChevronDown className="h-4 w-4 text-gray-400" />
           </div>

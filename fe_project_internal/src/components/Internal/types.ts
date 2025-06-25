@@ -39,22 +39,39 @@ export interface TableRow {
 export interface CreateAccountFormProps {
   userType: "admin" | "staff" | "partner"
   availableRoles: string[]
-  availableLocations: string[]
+  availableLocations: Location[]
   onSubmit: (data: CreateAccountData) => void
   onCancel: () => void
 }
 
+export interface ProfileInfo {
+  phone: string;
+  gender: string;
+  dob: string;
+  locationId: string;
+  note: string;
+  department: string;
+  level: string;
+}
+
 export interface CreateAccountData {
-  name: string
-  email: string
-  role: string
-  location: string
-  permissions?: string[]
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  location: string;
+  profileInfo?: ProfileInfo;
 }
 
 export interface Location {
   id: string
   name: string
-  region: string
-  city: string
+  description: string
+}
+export interface CreateAdminPayload {
+  userName: string
+  email: string
+  password: string
+  locationId: string
+  skipEmailVerification?: boolean
 }

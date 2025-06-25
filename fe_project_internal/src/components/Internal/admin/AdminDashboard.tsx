@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MapPin, Users, UserPlus, BarChart3, Briefcase } from "lucide-react"
 import Sidebar from "../shared/sidebar"
 import TopNav from "../shared/topNav"
@@ -48,11 +48,43 @@ const availablePartnerRoles = ["Partner_Coaching", "Partner_Services", "Partner_
 export default function AdminDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [createFormType, setCreateFormType] = useState<"staff" | "partner">("staff")
+  const [adminLocationId, setAdminLocationId] = useState<string>("")
+  const [adminName, setAdminName] = useState<string>("")
+
+  useEffect(() => {
+    // Lấy thông tin user từ localStorage
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("nextu_internal_user")
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        setAdminLocationId(user.location)
+        setAdminName(user.name)
+      }
+    }
+  }, [])
 
   const handleCreateAccount = (data: CreateAccountData) => {
-    console.log(`Creating ${createFormType}:`, data)
+    // Lấy locationId từ admin (từ localStorage)
+    const locationId = adminLocationId
+    const payload = {
+      userName: data.name,
+      email: data.email,
+      // Không truyền password cho nhân viên
+      locationId: locationId,
+      skipPasswordCreation: true,
+      profileInfo: {
+        phone: data.profileInfo?.phone,
+        gender: data.profileInfo?.gender,
+        dob: data.profileInfo?.dob,
+        locationId: locationId,
+        note: data.profileInfo?.note,
+        department: data.profileInfo?.department,
+        level: data.profileInfo?.level,
+      }
+    }
+    console.log("Creating staff:", payload)
+    // TODO: Gọi API tạo tài khoản nhân viên ở đây
     setShowCreateForm(false)
-    // Here you would typically make an API call
   }
 
   const renderStaffActions = (row: any) => (
@@ -213,7 +245,7 @@ export default function AdminDashboard() {
         <CreateAccountForm
           userType={createFormType}
           availableRoles={createFormType === "staff" ? availableStaffRoles : availablePartnerRoles}
-          availableLocations={[mockUser.location!]}
+          availableLocations={[adminLocationId]}
           onSubmit={handleCreateAccount}
           onCancel={() => setShowCreateForm(false)}
         />
