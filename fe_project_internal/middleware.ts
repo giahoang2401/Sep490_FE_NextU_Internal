@@ -5,7 +5,7 @@ const roleDashboard = {
   super_admin: '/super-admin',
   admin: '/admin',
   manager: '/manager',
-  staff_membership: '/staff-membership',
+  staff_onboarding: '/staff-onboarding',
   staff_services: '/staff-services',
   staff_content: '/staff-content',
 }
@@ -27,7 +27,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Nếu vào nhầm route, redirect về dashboard đúng role
-  const expectedPath = roleDashboard[user.role]
+  const expectedPath = roleDashboard[user.role as keyof typeof roleDashboard]
   if (expectedPath && !path.startsWith(expectedPath)) {
     return NextResponse.redirect(new URL(expectedPath, request.url))
   }
@@ -40,7 +40,7 @@ export const config = {
     '/super-admin/:path*',
     '/admin/:path*',
     '/manager/:path*',
-    '/staff-membership/:path*',
+    '/staff-onboarding/:path*',
     '/staff-services/:path*',
     '/staff-content/:path*',
   ],

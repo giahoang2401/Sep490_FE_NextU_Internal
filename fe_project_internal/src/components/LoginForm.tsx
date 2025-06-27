@@ -58,15 +58,16 @@ export default function LoginForm() {
       localStorage.setItem("nextu_internal_user", JSON.stringify(userInfo))
       setCookie("nextu_internal_user", JSON.stringify(userInfo), { path: '/' })
 
+      const roleKey = data.role.toLowerCase()
       const roleRoutes = {
         super_admin: "/super-admin",
         admin: "/admin",
         manager: "/manager",
-        staff_membership: "/staff-membership",
+        staff_onboarding: "/staff-onboarding",
         staff_services: "/staff-services",
         staff_content: "/staff-content",
       }
-      const redirectPath = roleRoutes[data.role.toLowerCase() as keyof typeof roleRoutes] || "/"
+      const redirectPath = roleRoutes[roleKey as keyof typeof roleRoutes] || "/"
       router.push(redirectPath)
     } catch (err: any) {
       setError(err.response?.data?.error_description || err.response?.data?.message || err.message || "Login failed")

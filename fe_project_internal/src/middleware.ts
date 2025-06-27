@@ -25,8 +25,8 @@ export function middleware(request: NextRequest) {
     }
   }
   // Staff_Membership chỉ được vào /internal/staff-membership
-  if (request.nextUrl.pathname.startsWith('/staff-membership')) {
-    if (!user || user.role !== 'staff_Membership') {
+  if (request.nextUrl.pathname.startsWith('/staff-onboarding')) {
+    if (!user || user.role !== 'staff_onboarding') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }
@@ -51,7 +51,7 @@ export const config = {
     '/super-admin/:path*',
     '/admin/:path*',
     '/manager/:path*',
-    '/staff-membership/:path*',
+    '/staff-onboarding/:path*',
     '/staff-services/:path*',
     '/staff-content/:path*',
   ],
