@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
   }
   // Admin chỉ được vào /internal/admin
   if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!user || user.role !== 'amin') {
+    if (!user || user.role !== 'admin') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }
@@ -32,7 +32,7 @@ export function middleware(request: NextRequest) {
   }
   // Staff_Services chỉ được vào /internal/staff-services
   if (request.nextUrl.pathname.startsWith('/staff-services')) {
-    if (!user || user.role !== 'staff_Services') {
+    if (!user || user.role !== 'staff_service') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }

@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, GraduationCap, Lightbulb, MessageSquare, Plus, Star } from "lucide-react"
+import { Home, GraduationCap, Lightbulb, MessageSquare, Plus, Star, DoorOpen } from "lucide-react"
 import Sidebar from "../shared/sidebar"
 import TopNav from "../shared/topNav"
 import DataTable from "../shared/dataTable"
@@ -12,6 +12,7 @@ const navigation: NavigationItem[] = [
   { name: "NextAcademy", href: "/internal/staff-services/academy", icon: GraduationCap },
   { name: "Propose Activities", href: "/internal/staff-services/activities", icon: Lightbulb },
   { name: "Member Feedback", href: "/internal/staff-services/feedback", icon: MessageSquare },
+  { name: "Room Management", href: "/staff-services/room", icon: DoorOpen },
 ]
 
 const mockUser: User = {

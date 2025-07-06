@@ -64,7 +64,7 @@ export default function LoginForm() {
         admin: "/admin",
         manager: "/manager",
         staff_onboarding: "/staff-onboarding",
-        staff_services: "/staff-services",
+        staff_service: "/staff-services",
         staff_content: "/staff-content",
       }
       const redirectPath = roleRoutes[roleKey as keyof typeof roleRoutes] || "/"
