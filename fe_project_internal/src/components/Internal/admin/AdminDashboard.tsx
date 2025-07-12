@@ -9,6 +9,7 @@ import DataTable from "../shared/dataTable"
 import CreateAccountForm from "../shared/createAccountForm"
 import RoleLayout from "../shared/roleLayout"
 import type { NavigationItem, User, TableColumn, CreateAccountData } from "../types"
+import api from "../../../../utils/axiosConfig";
 
 const navigation: NavigationItem[] = [
   { name: "Regional Dashboard", href: "/internal/admin", icon: MapPin, current: true },
@@ -63,9 +64,9 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  const handleCreateAccount = (data: CreateAccountData) => {
+  const handleCreateAccount = async (data: CreateAccountData) => {
     // Lấy locationId từ admin (từ localStorage)
-    const locationId = adminLocationId
+    const locationId = adminLocationId;
     const payload = {
       userName: data.name,
       email: data.email,
@@ -81,10 +82,34 @@ export default function AdminDashboard() {
         department: data.profileInfo?.department,
         level: data.profileInfo?.level,
       }
+    };
+    // Xác định endpoint dựa vào role
+    let endpoint = "";
+    switch (data.role) {
+      case "Manager":
+        endpoint = "/api/auth/admin/register/manager";
+        break;
+      case "Staff_Onboarding":
+        endpoint = "/api/auth/admin/register/staff-onboarding";
+        break;
+      case "Staff_Services":
+        endpoint = "/api/auth/admin/register/staff-service";
+        break;
+      case "Staff_Content":
+        endpoint = "/api/auth/admin/register/staff-content";
+        break;
+      default:
+        alert("Invalid staff role selected");
+        return;
     }
-    console.log("Creating staff:", payload)
-    // TODO: Gọi API tạo tài khoản nhân viên ở đây
-    setShowCreateForm(false)
+    try {
+      await api.post(endpoint, payload);
+      setShowCreateForm(false);
+      // TODO: reload staff list nếu cần
+    } catch (error) {
+      alert("Tạo tài khoản thất bại");
+      console.error(error);
+    }
   }
 
   const renderStaffActions = (row: any) => (
@@ -245,7 +270,7 @@ export default function AdminDashboard() {
         <CreateAccountForm
           userType={createFormType}
           availableRoles={createFormType === "staff" ? availableStaffRoles : availablePartnerRoles}
-          availableLocations={[adminLocationId]}
+          availableLocations={[{ id: adminLocationId, name: "", description: "" }]}
           onSubmit={handleCreateAccount}
           onCancel={() => setShowCreateForm(false)}
         />

@@ -1,6 +1,6 @@
 "use client";
 
-import type React from "react";
+import React from "react";
 
 import { useState } from "react";
 import type { CreateAccountFormProps, CreateAccountData } from "../types";
@@ -28,6 +28,14 @@ export default function CreateAccountForm({
   });
 
   const isAdmin = userType === "admin";
+  const isStaff = userType === "staff";
+
+  // Nếu là staff, tự động gán location từ availableLocations (nếu có)
+  React.useEffect(() => {
+    if (isStaff && Array.isArray(availableLocations) && availableLocations.length > 0) {
+      setForm((prev) => ({ ...prev, location: availableLocations[0].id }));
+    }
+  }, [isStaff, availableLocations]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,25 +148,28 @@ export default function CreateAccountForm({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Location
-            </label>
-            <select
-              required
-              value={form.location}
-              onChange={(e) => handleChange("location", e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select location</option>
-              {Array.isArray(availableLocations) &&
-                availableLocations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+          {/* Location field: chỉ hiển thị nếu không phải staff */}
+          {!isStaff && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Location
+              </label>
+              <select
+                required
+                value={form.location}
+                onChange={(e) => handleChange("location", e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select location</option>
+                {Array.isArray(availableLocations) &&
+                  availableLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
