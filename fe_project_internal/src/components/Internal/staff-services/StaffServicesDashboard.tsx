@@ -26,21 +26,18 @@ const mockUser: User = {
   avatar: "/placeholder.svg?height=32&width=32",
 }
 
+
+
+// Cập nhật lại columns bảng
 const serviceColumns: TableColumn[] = [
-  { key: "service", label: "Service", sortable: true },
-  { key: "category", label: "Category" },
+  { key: "service", label: "Packages", sortable: true },
+  { key: "category", label: "Type" },
   { key: "status", label: "Status" },
-  { key: "users", label: "Active Users", sortable: true },
-  { key: "rating", label: "Rating", sortable: true },
+  { key: "price", label: "Price" },
+  { key: "planDurationDescription", label: "Plan Duration" },
 ]
 
-const serviceData = [
-  { service: "House Cleaning", category: "NextLiving", status: "Active", users: 245, rating: "4.8" },
-  { service: "Maintenance Requests", category: "NextLiving", status: "Active", users: 189, rating: "4.6" },
-  { service: "Coding Bootcamp", category: "NextAcademy", status: "Active", users: 156, rating: "4.9" },
-  { service: "Language Exchange", category: "NextAcademy", status: "Maintenance", users: 98, rating: "4.7" },
-  { service: "Meal Planning", category: "NextLiving", status: "Active", users: 203, rating: "4.5" },
-]
+
 
 const feedbackData = [
   { service: "House Cleaning", feedback: "Excellent service, very thorough!", rating: 5, user: "Alex R." },
@@ -50,23 +47,34 @@ const feedbackData = [
 ]
 
 export default function StaffServicesDashboard() {
-  // State cho modal và form
+  // TẤT CẢ các hook phải ở đầu thân hàm component
   const [showAddModal, setShowAddModal] = useState(false)
   const [basicPlanTypes, setBasicPlanTypes] = useState<any[]>([])
   const [accommodationOptions, setAccommodationOptions] = useState<any[]>([])
   const [durations, setDurations] = useState<any[]>([])
-  const [selectedDurations, setSelectedDurations] = useState<{[key:string]: string}>({}) // {durationId: discountRate}
+  const [selectedDurations, setSelectedDurations] = useState<{[key:string]: string}>({})
   const [selectedDurationIds, setSelectedDurationIds] = useState<string[]>([])
   const [form, setForm] = useState({
-    locationId: "",
-    basicPlanTypeId: "",
-    roomTypeId: "",
     code: "",
     name: "",
     description: "",
+    basicPlanTypeId: "",
+    locationId: "",
+    roomTypeId: "",
     price: "",
+    basicPlanCategoryId: 1,
+    planLevelId: 1,
+    targetAudienceId: 1,
   })
   const [selectedPlanType, setSelectedPlanType] = useState<any>(null)
+  const [finalPrice, setFinalPrice] = useState<number>(0)
+  const [selectedRoom, setSelectedRoom] = useState<any>(null)
+  const [basicPlans, setBasicPlans] = useState<any[]>([])
+  // Phân trang và popup detail
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 5
+  const [selectedPlan, setSelectedPlan] = useState<any>(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
 
   // Lấy locationId từ localStorage (key: nextu_internal_user)
   useEffect(() => {
@@ -92,21 +100,73 @@ export default function StaffServicesDashboard() {
     })
   }, [])
 
-  // Lấy AccommodationOptions nếu chọn Cors
-  useEffect(() => {
-    if (selectedPlanType && selectedPlanType.name === "Cors") {
-      axios.get("/api/membership/AccommodationOptions").then(res => {
-        setAccommodationOptions(res.data)
-      })
-    }
-  }, [selectedPlanType])
-
-  // Lấy durations
+  // Lấy durations từ API /api/PackageDuration
   useEffect(() => {
     axios.get("/api/membership/PackageDuration").then(res => {
       setDurations(res.data)
     })
   }, [])
+
+  // Lấy danh sách basic package theo location khi load trang
+  useEffect(() => {
+    let locationId = ""
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("nextu_internal_user")
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr)
+          locationId = userObj.location || ""
+        } catch {}
+      }
+    }
+    if (locationId) {
+      axios.get(`/api/membership/BasicPlans?locationId=${locationId}`)
+        .then(res => {
+          setBasicPlans(res.data)
+        })
+    }
+  }, [])
+
+  // Khi chọn BasicPlanType là Living thì gọi AccommodationOptions
+  useEffect(() => {
+    if (selectedPlanType && selectedPlanType.code === "ACCOMMODATION") {
+      axios.get("/api/membership/AccommodationOptions").then(res => {
+        setAccommodationOptions(res.data)
+      })
+    } else {
+      setAccommodationOptions([])
+      setSelectedRoom(null)
+    }
+  }, [selectedPlanType])
+
+  // Khi chọn roomTypeId thì set selectedRoom
+  useEffect(() => {
+    if (form.roomTypeId && accommodationOptions.length > 0) {
+      const room = accommodationOptions.find((r: any) => r.id === form.roomTypeId)
+      setSelectedRoom(room)
+    } else {
+      setSelectedRoom(null)
+    }
+  }, [form.roomTypeId, accommodationOptions])
+
+  // Tính giá cuối cùng khi chọn đủ room + duration
+  useEffect(() => {
+    if (selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && selectedRoom && selectedDurationIds.length > 0) {
+      // Lấy duration đầu tiên (chỉ cho phép chọn 1 duration)
+      const durationId = selectedDurationIds[0]
+      const duration = durations.find((d: any) => String(d.id) === String(durationId))
+      if (duration && selectedRoom.pricePerNight) {
+        // Sửa lại: nhân đúng số tháng
+        const months = duration.unit.toLowerCase() === "month" ? duration.value : duration.unit.toLowerCase() === "year" ? duration.value * 12 : 1
+        const price = selectedRoom.pricePerNight * 30 * months
+        setFinalPrice(price)
+      } else {
+        setFinalPrice(0)
+      }
+    } else {
+      setFinalPrice(0)
+    }
+  }, [selectedPlanType, selectedRoom, selectedDurationIds, durations])
 
   const handleChange = (e: any) => {
     const { name, value } = e.target
@@ -133,21 +193,49 @@ export default function StaffServicesDashboard() {
     setSelectedDurations(prev => ({ ...prev, [durationId]: e.target.value }))
   }
 
+  // Sửa lại handleSubmit để gửi đúng các trường
   const handleSubmit = async (e: any) => {
     e.preventDefault()
     // Gom packageDurations
-    const packageDurations = selectedDurationIds.map(durationId => ({
-      durationId,
-      discountRate: Number(selectedDurations[durationId] || 0)
-    }))
+    const packageDurations = selectedDurationIds.length > 0 ? [{
+      durationId: selectedDurationIds[0],
+      discountRate: 0
+    }] : []
     // Kiểm tra locationId là GUID hợp lệ
     const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
     if (!form.locationId || !guidRegex.test(form.locationId)) {
       alert("locationId không hợp lệ hoặc không phải GUID!")
       return
     }
+    // Xác định verifyBuy/requireBooking theo loại gói
+    let verifyBuy = true
+    let requireBooking = true
+    if (selectedPlanType) {
+      if (selectedPlanType.code === "ACCOMMODATION") {
+        verifyBuy = true
+        requireBooking = true
+      } else if (selectedPlanType.code === "LIFEACTIVITIES") {
+        verifyBuy = true
+        requireBooking = false
+      }
+    }
+    // Nếu là ACCOMMODATION thì thêm accomodations
+    let extra = {}
+    if (selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && form.roomTypeId) {
+      extra = { accomodations: [{ accomodationId: form.roomTypeId }] }
+    }
     try {
-      await axios.post("/api/membership/BasicPlans", { request: { ...form, packageDurations } })
+      await axios.post("/api/membership/BasicPlans", {
+        ...form,
+        verifyBuy,
+        requireBooking,
+        packageDurations,
+        price: finalPrice,
+        basicPlanCategoryId: 1,
+        planLevelId: 1,
+        targetAudienceId: 1,
+        ...extra
+      })
       alert("Tạo Basic Package thành công!")
     } catch (err: any) {
       alert("Tạo Basic Package thất bại!" + (err?.response?.data?.message ? (": " + err.response.data.message) : ""))
@@ -155,10 +243,31 @@ export default function StaffServicesDashboard() {
     setShowAddModal(false)
   }
 
+  // Map lại dữ liệu cho DataTable
+  const mappedPlans = basicPlans.map(plan => ({
+    service: plan.name,
+    category: plan.basicPlanType,
+    status: plan.status || "Active",
+    price: plan.price?.toLocaleString() + "₫" || "-",
+    planDurationDescription: plan.planDurations && plan.planDurations.length > 0
+      ? plan.planDurations.map((d: any) => `${d.planDurationValue} ${d.planDurationUnit}`).join(", ")
+      : "-",
+    raw: plan, // giữ lại object gốc để xem detail
+  }))
+
+  // Phân trang
+  const totalPages = Math.ceil(mappedPlans.length / pageSize)
+  const pagedPlans = mappedPlans.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Render actions: Detail
   const renderServiceActions = (row: any) => (
     <div className="flex space-x-2">
-      <button className="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full hover:bg-blue-200">Manage</button>
-      <button className="px-3 py-1 bg-gray-100 text-gray-800 text-xs rounded-full hover:bg-gray-200">Settings</button>
+      <button
+        className="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full hover:bg-blue-200"
+        onClick={() => { setSelectedPlan(row.raw); setShowDetailModal(true) }}
+      >
+        Detail
+      </button>
     </div>
   )
 
@@ -215,7 +324,7 @@ export default function StaffServicesDashboard() {
             <div className="lg:col-span-2">
               <div className="bg-white shadow rounded-lg">
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                  <h3 className="text-lg font-medium text-gray-900">Active Services</h3>
+                  <h3 className="text-lg font-medium text-gray-900">Basic packages</h3>
                   <button
                     className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                     onClick={() => setShowAddModal(true)}
@@ -224,94 +333,42 @@ export default function StaffServicesDashboard() {
                     Add Basic Package
                   </button>
                 </div>
-                <DataTable columns={serviceColumns} data={serviceData} actions={renderServiceActions} />
+                <DataTable columns={serviceColumns} data={pagedPlans} actions={renderServiceActions} />
+                {/* Thêm phân trang dưới bảng */}
+                <div className="flex justify-end mt-2">
+                  <nav className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className="relative inline-flex items-center px-2 py-1 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    {[...Array(totalPages)].map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentPage(idx + 1)}
+                        className={`relative inline-flex items-center px-3 py-1 border-t border-b border-gray-300 text-sm font-medium ${currentPage === idx + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        {idx + 1}
+                      </button>
+                    ))}
+                    <button
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className="relative inline-flex items-center px-2 py-1 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
               </div>
             </div>
 
             <div className="space-y-6">
               <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Propose New Activity</h3>
-                <form className="space-y-4" onSubmit={handleSubmit}>
-                  {/* Location dropdown - Ẩn khỏi UI, chỉ giữ giá trị trong state */}
-                  {/* <div>
-                    <label className="block text-sm font-medium mb-1">Location</label>
-                    <select name="locationId" value={form.locationId} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                      <option value="">Select Location</option>
-                      {form.locationId && <option value={form.locationId}>{form.locationId}</option>}
-                    </select>
-                  </div> */}
-                  {/* BasicPlanType dropdown */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Basic Plan Type</label>
-                    <select name="basicPlanTypeId" value={form.basicPlanTypeId} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                      <option value="">Select Type</option>
-                      {basicPlanTypes.map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* AccommodationOptions dropdown nếu chọn Cors */}
-                  {selectedPlanType && selectedPlanType.name === "Cors" && (
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Room Type</label>
-                      <select name="roomTypeId" value={form.roomTypeId} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                        <option value="">Select Room</option>
-                        {accommodationOptions.map((r: any) => (
-                          <option key={r.id} value={r.id}>{r.roomTypeName}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {/* Các trường nhập tay */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Code</label>
-                    <input name="code" value={form.code} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Name</label>
-                    <input name="name" value={form.name} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Description</label>
-                    <input name="description" value={form.description} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Price</label>
-                    <input name="price" type="number" value={form.price} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  {/* Durations */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Durations</label>
-                    <select
-                      multiple
-                      className="w-full border rounded px-3 py-2"
-                      value={selectedDurationIds}
-                      onChange={handleDurationDropdownChange}
-                    >
-                      {durations.map((d: any) => (
-                        <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
-                      ))}
-                    </select>
-                    <div className="space-y-2 mt-2">
-                      {selectedDurationIds.map(durationId => {
-                        const d = durations.find((x: any) => String(x.id) === String(durationId))
-                        return (
-                          <div key={durationId} className="flex items-center space-x-2">
-                            <span className="text-sm">{d ? `${d.value} ${d.unit}` : durationId}</span>
-                            <input
-                              type="number"
-                              placeholder="Discount Rate (%)"
-                              value={selectedDurations[durationId] || ""}
-                              onChange={e => handleDiscountRateChange(e, durationId)}
-                              className="ml-2 border rounded px-2 py-1 w-32"
-                            />
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                  <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Add Basic Package</button>
-                </form>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Combo packages</h3>
+                <div className="text-gray-500">(Chức năng này sẽ lấy API combo packages, hiện đang là mock)</div>
               </div>
 
               <div className="bg-white shadow rounded-lg p-6">
@@ -391,90 +448,92 @@ export default function StaffServicesDashboard() {
           {/* Modal Add Basic Package */}
           {showAddModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-              <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg relative">
+              <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-4xl relative">
                 <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setShowAddModal(false)}>&times;</button>
                 <h2 className="text-xl font-bold mb-4">Add Basic Package</h2>
                 <form className="space-y-4" onSubmit={handleSubmit}>
-                  {/* Location dropdown */}
-                  {/* <div>
-                    <label className="block text-sm font-medium mb-1">Location</label>
-                    <select name="locationId" value={form.locationId} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                      <option value="">Select Location</option>
-                      {form.locationId && <option value={form.locationId}>{form.locationId}</option>}
-                    </select>
-                  </div> */}
-                  {/* BasicPlanType dropdown */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Basic Plan Type</label>
-                    <select name="basicPlanTypeId" value={form.basicPlanTypeId} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                      <option value="">Select Type</option>
-                      {basicPlanTypes.map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* AccommodationOptions dropdown nếu chọn Cors */}
-                  {selectedPlanType && selectedPlanType.name === "Cors" && (
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Room Type</label>
-                      <select name="roomTypeId" value={form.roomTypeId} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                        <option value="">Select Room</option>
-                        {accommodationOptions.map((r: any) => (
-                          <option key={r.id} value={r.id}>{r.roomTypeName}</option>
+                  <div className="flex flex-row flex-wrap gap-4 items-end">
+                    {/* BasicPlanType dropdown */}
+                    <div className="flex flex-col w-56">
+                      <label className="block text-sm font-medium mb-1">Basic Plan Type</label>
+                      <select name="basicPlanTypeId" value={form.basicPlanTypeId} onChange={handleChange} className="border rounded px-3 py-2">
+                        <option value="">Select Type</option>
+                        {basicPlanTypes.map((b: any) => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
                         ))}
                       </select>
                     </div>
-                  )}
-                  {/* Các trường nhập tay */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Code</label>
-                    <input name="code" value={form.code} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Name</label>
-                    <input name="name" value={form.name} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Description</label>
-                    <input name="description" value={form.description} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Price</label>
-                    <input name="price" type="number" value={form.price} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-                  </div>
-                  {/* Durations */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Durations</label>
-                    <select
-                      multiple
-                      className="w-full border rounded px-3 py-2"
-                      value={selectedDurationIds}
-                      onChange={handleDurationDropdownChange}
-                    >
-                      {durations.map((d: any) => (
-                        <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
-                      ))}
-                    </select>
-                    <div className="space-y-2 mt-2">
-                      {selectedDurationIds.map(durationId => {
-                        const d = durations.find((x: any) => String(x.id) === String(durationId))
-                        return (
-                          <div key={durationId} className="flex items-center space-x-2">
-                            <span className="text-sm">{d ? `${d.value} ${d.unit}` : durationId}</span>
-                            <input
-                              type="number"
-                              placeholder="Discount Rate (%)"
-                              value={selectedDurations[durationId] || ""}
-                              onChange={e => handleDiscountRateChange(e, durationId)}
-                              className="ml-2 border rounded px-2 py-1 w-32"
-                            />
-                          </div>
-                        )
-                      })}
+                    {/* Nếu là Living thì chọn roomTypeName và hiển thị pricePerNight */}
+                    {selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && (
+                      <div className="flex flex-col w-56">
+                        <label className="block text-sm font-medium mb-1">Room Type</label>
+                        <select name="roomTypeId" value={form.roomTypeId} onChange={handleChange} className="border rounded px-3 py-2">
+                          <option value="">Select Room</option>
+                          {accommodationOptions.map((r: any) => (
+                            <option key={r.id} value={r.id}>{r.roomTypeName} ({r.pricePerNight.toLocaleString()}₫/đêm)</option>
+                          ))}
+                        </select>
+                        {selectedRoom && (
+                          <span className="text-xs text-gray-500 mt-1">Giá phòng: {selectedRoom.pricePerNight.toLocaleString()}₫/đêm</span>
+                        )}
+                      </div>
+                    )}
+                    {/* Code */}
+                    <div className="flex flex-col w-40">
+                      <label className="block text-sm font-medium mb-1">Code</label>
+                      <input name="code" value={form.code} onChange={handleChange} className="border rounded px-3 py-2" />
+                    </div>
+                    {/* Name */}
+                    <div className="flex flex-col w-40">
+                      <label className="block text-sm font-medium mb-1">Name</label>
+                      <input name="name" value={form.name} onChange={handleChange} className="border rounded px-3 py-2" />
+                    </div>
+                    {/* Description */}
+                    <div className="flex flex-col w-56">
+                      <label className="block text-sm font-medium mb-1">Description</label>
+                      <input name="description" value={form.description} onChange={handleChange} className="border rounded px-3 py-2" />
+                    </div>
+                    {/* Duration (chỉ cho chọn 1) */}
+                    <div className="flex flex-col w-40">
+                      <label className="block text-sm font-medium mb-1">Duration</label>
+                      <select
+                        className="border rounded px-3 py-2"
+                        value={selectedDurationIds[0] || ""}
+                        onChange={e => setSelectedDurationIds([e.target.value])}
+                      >
+                        <option value="">Chọn thời hạn</option>
+                        {durations.map((d: any) => (
+                          <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Hiển thị giá cuối cùng */}
+                    <div className="flex flex-col w-56">
+                      <label className="block text-sm font-medium mb-1">Giá cuối cùng</label>
+                      <div className="text-lg font-bold text-blue-600">{finalPrice > 0 ? finalPrice.toLocaleString() + "₫" : "-"}</div>
                     </div>
                   </div>
-                  <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Add Basic Package</button>
+                  <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mt-4">Add Basic Package</button>
                 </form>
+              </div>
+            </div>
+          )}
+          {/* Thêm popup detail */}
+          {showDetailModal && selectedPlan && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg relative animate-fade-in">
+                <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl" onClick={() => setShowDetailModal(false)}>&times;</button>
+                <h2 className="text-2xl font-bold mb-4 text-blue-700">Basic Package Detail</h2>
+                <div className="space-y-2 text-gray-700">
+                  <div><b>Service:</b> {selectedPlan.service}</div>
+                  <div><b>Category:</b> {selectedPlan.category}</div>
+                  <div><b>Status:</b> {selectedPlan.status}</div>
+                  <div><b>Price:</b> {selectedPlan.price}</div>
+                  <div><b>Plan Duration:</b> {selectedPlan.planDurationDescription}</div>
+                  <div><b>Description:</b> {selectedPlan.raw?.description || "-"}</div>
+                  <div><b>Location:</b> {selectedPlan.raw?.locationName || "-"}</div>
+                  <div><b>Code:</b> {selectedPlan.raw?.code || "-"}</div>
+                </div>
               </div>
             </div>
           )}
