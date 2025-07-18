@@ -75,6 +75,15 @@ export default function StaffServicesDashboard() {
   const pageSize = 5
   const [selectedPlan, setSelectedPlan] = useState<any>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  
+  // State cho filter và search
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
+  
+  // State cho combo filter và search
+  const [comboSearchTerm, setComboSearchTerm] = useState("")
+  const [comboStatusFilter, setComboStatusFilter] = useState("all")
 
   // 1. State cho combo packages
   const [comboPlans, setComboPlans] = useState<any[]>([])
@@ -136,7 +145,7 @@ export default function StaffServicesDashboard() {
   }, [])
 
   // Lấy danh sách basic package theo location khi load trang
-  useEffect(() => {
+  const fetchBasicPlans = () => {
     let locationId = ""
     if (typeof window !== "undefined") {
       const userStr = localStorage.getItem("nextu_internal_user")
@@ -153,6 +162,10 @@ export default function StaffServicesDashboard() {
           setBasicPlans(res.data)
         })
     }
+  }
+
+  useEffect(() => {
+    fetchBasicPlans()
   }, [])
 
   // Khi chọn BasicPlanType là Living thì gọi AccommodationOptions
@@ -226,8 +239,7 @@ export default function StaffServicesDashboard() {
   }, [selectedPlanType, selectedEntitlementId, entitlements, selectedDurationIds, durations])
 
   // 2. Lấy comboPlans, packageLevels
-  useEffect(() => {
-    // Lấy combo plans
+  const fetchComboPlans = () => {
     let locationId = ''
     if (typeof window !== 'undefined') {
       const userStr = localStorage.getItem('nextu_internal_user')
@@ -242,6 +254,10 @@ export default function StaffServicesDashboard() {
       axios.get(`/api/membership/ComboPlans?locationId=${locationId}`)
         .then(res => setComboPlans(res.data))
     }
+  }
+
+  useEffect(() => {
+    fetchComboPlans()
     // Lấy package levels
     axios.get('/api/membership/PackageLevel').then(res => setPackageLevels(res.data))
   }, [])
@@ -258,9 +274,27 @@ export default function StaffServicesDashboard() {
     raw: plan, // giữ lại object gốc để xem detail
   }))
 
+  // Filter và search logic
+  const filteredPlans = mappedPlans.filter(plan => {
+    const matchesSearch = searchTerm === "" || 
+      plan.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      plan.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      plan.raw.code?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = statusFilter === "all" || plan.status === statusFilter
+    const matchesType = typeFilter === "all" || plan.category === typeFilter
+    
+    return matchesSearch && matchesStatus && matchesType
+  })
+
+  // Reset page khi filter thay đổi
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, typeFilter])
+
   // Phân trang
-  const totalPages = Math.ceil(mappedPlans.length / pageSize)
-  const pagedPlans = mappedPlans.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(filteredPlans.length / pageSize)
+  const pagedPlans = filteredPlans.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   // Map combo plans cho bảng
   const mappedComboPlans = comboPlans.map(plan => ({
@@ -273,8 +307,25 @@ export default function StaffServicesDashboard() {
       : '-',
     raw: plan,
   }))
-  const comboTotalPages = Math.ceil(mappedComboPlans.length / comboPageSize)
-  const pagedComboPlans = mappedComboPlans.slice((comboCurrentPage - 1) * comboPageSize, comboCurrentPage * comboPageSize)
+
+  // Filter và search logic cho combo
+  const filteredComboPlans = mappedComboPlans.filter(plan => {
+    const matchesSearch = comboSearchTerm === "" || 
+      plan.service.toLowerCase().includes(comboSearchTerm.toLowerCase()) ||
+      plan.raw.code?.toLowerCase().includes(comboSearchTerm.toLowerCase())
+    
+    const matchesStatus = comboStatusFilter === "all" || plan.status === comboStatusFilter
+    
+    return matchesSearch && matchesStatus
+  })
+
+  // Reset combo page khi filter thay đổi
+  useEffect(() => {
+    setComboCurrentPage(1)
+  }, [comboSearchTerm, comboStatusFilter])
+
+  const comboTotalPages = Math.ceil(filteredComboPlans.length / comboPageSize)
+  const pagedComboPlans = filteredComboPlans.slice((comboCurrentPage - 1) * comboPageSize, comboCurrentPage * comboPageSize)
 
   // Render actions: Detail
   const renderServiceActions = (row: any) => (
@@ -374,6 +425,27 @@ export default function StaffServicesDashboard() {
         ...extra
       })
       alert("Tạo Basic Package thành công!")
+      // Refresh danh sách basic plans sau khi tạo thành công
+      fetchBasicPlans()
+      // Reset form và modal
+      setForm({
+        code: "",
+        name: "",
+        description: "",
+        basicPlanTypeId: "",
+        locationId: "",
+        roomTypeId: "",
+        price: "",
+        basicPlanCategoryId: 1,
+        planLevelId: 1,
+        targetAudienceId: 1,
+      })
+      setSelectedPlanType(null)
+      setSelectedRoom(null)
+      setSelectedDurationIds([])
+      setSelectedDurations({})
+      setSelectedEntitlementId("")
+      setFinalPrice(0)
     } catch (err: any) {
       alert("Tạo Basic Package thất bại!" + (err?.response?.data?.message ? (": " + err.response.data.message) : ""))
     }
@@ -455,11 +527,14 @@ export default function StaffServicesDashboard() {
         packageDurations
       })
       alert('Tạo Combo Package thành công!')
+      // Refresh danh sách combo plans sau khi tạo thành công
+      fetchComboPlans()
+      // Reset form và modal
       setShowAddComboModal(false)
       setFormCombo({ code: '', name: '', discountRate: 0, packageLevelId: '' })
       setSelectedComboBasic({ accommodation: null, lifeActivities: [] })
-      // Reload combo plans để lấy đủ totalPrice, locationName, packageLevelName
-      axios.get(`/api/membership/ComboPlans?locationId=${locationId}`).then(res => setComboPlans(res.data))
+      setComboDurationId('')
+      setComboError('')
     } catch (err: any) {
       setComboError('Tạo Combo Package thất bại! ' + (err?.response?.data?.message || ''))
     }
@@ -549,8 +624,9 @@ export default function StaffServicesDashboard() {
           </div>
 
           {/* Service Management */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            {/* Basic packages - 3/4 width */}
+            <div className="lg:col-span-3">
               <div className="bg-white shadow rounded-lg">
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="text-lg font-medium text-gray-900">Basic packages</h3>
@@ -562,6 +638,77 @@ export default function StaffServicesDashboard() {
                     Add Basic Package
                   </button>
                 </div>
+                
+                {/* Search and Filter Section */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <div className="flex flex-col md:flex-row gap-4">
+                    {/* Search */}
+                    <div className="flex-1">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search packages, types, or codes..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Status Filter */}
+                    <div className="w-full md:w-48">
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Pending">Pending</option>
+                      </select>
+                    </div>
+                    
+                    {/* Type Filter */}
+                    <div className="w-full md:w-48">
+                      <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="all">All Types</option>
+                        <option value="Living">Living</option>
+                        <option value="Life activities">Life activities</option>
+                      </select>
+                    </div>
+                    
+                    {/* Clear Filters */}
+                    {(searchTerm || statusFilter !== "all" || typeFilter !== "all") && (
+                      <button
+                        onClick={() => {
+                          setSearchTerm("")
+                          setStatusFilter("all")
+                          setTypeFilter("all")
+                        }}
+                        className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Results count */}
+                  <div className="mt-3 text-sm text-gray-600">
+                    Showing {pagedPlans.length} of {filteredPlans.length} packages
+                    {searchTerm && ` for "${searchTerm}"`}
+                  </div>
+                </div>
+                
                 <DataTable columns={serviceColumns} data={pagedPlans} actions={renderServiceActions} />
                 {/* Thêm phân trang dưới bảng */}
                 <div className="flex justify-end mt-2">
@@ -594,8 +741,29 @@ export default function StaffServicesDashboard() {
               </div>
             </div>
 
-            <div className="space-y-6">
-              {/* Combo Packages Box */}
+            {/* Recent Feedback Box - Side column */}
+            <div className="lg:col-span-1">
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Feedback</h3>
+                <div className="space-y-3">
+                  {feedbackData.map((item, index) => (
+                    <div key={index} className="border-l-4 border-blue-400 pl-4">
+                      <div className="text-sm font-medium text-gray-900">{item.service}</div>
+                      <div className="text-xs text-gray-600">"{item.feedback}"</div>
+                      <div className="text-xs text-gray-500 flex items-center mt-1">
+                        <Star className="h-3 w-3 text-yellow-400 mr-1" />
+                        {item.rating}/5 - {item.user}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Combo Packages - Same width as Basic packages */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+                        <div className="lg:col-span-3">
               <div className="bg-white shadow rounded-lg">
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="text-lg font-medium text-gray-900">Combo Packages</h3>
@@ -606,7 +774,64 @@ export default function StaffServicesDashboard() {
                     <Plus className="h-4 w-4 mr-2" />
                     Add Combo Package
                   </button>
+                </div>
+                
+                {/* Search and Filter Section for Combo */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <div className="flex flex-col md:flex-row gap-4">
+                    {/* Search */}
+                    <div className="flex-1">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search combo packages or codes..."
+                          value={comboSearchTerm}
+                          onChange={(e) => setComboSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Status Filter */}
+                    <div className="w-full md:w-48">
+                      <select
+                        value={comboStatusFilter}
+                        onChange={(e) => setComboStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Pending">Pending</option>
+                      </select>
+                    </div>
+                    
+                    {/* Clear Filters */}
+                    {(comboSearchTerm || comboStatusFilter !== "all") && (
+                      <button
+                        onClick={() => {
+                          setComboSearchTerm("")
+                          setComboStatusFilter("all")
+                        }}
+                        className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
                   </div>
+                  
+                  {/* Results count */}
+                  <div className="mt-3 text-sm text-gray-600">
+                    Showing {pagedComboPlans.length} of {filteredComboPlans.length} combo packages
+                    {comboSearchTerm && ` for "${comboSearchTerm}"`}
+                  </div>
+                </div>
+                
                 <DataTable columns={serviceColumns} data={pagedComboPlans} actions={renderComboActions} />
                 {/* Phân trang dưới bảng */}
                 <div className="flex justify-end mt-2">
@@ -635,26 +860,11 @@ export default function StaffServicesDashboard() {
                       Next
                     </button>
                   </nav>
-                  </div>
-              </div>
-
-              {/* Recent Feedback Box giữ nguyên */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Feedback</h3>
-                <div className="space-y-3">
-                  {feedbackData.map((item, index) => (
-                    <div key={index} className="border-l-4 border-blue-400 pl-4">
-                      <div className="text-sm font-medium text-gray-900">{item.service}</div>
-                      <div className="text-xs text-gray-600">"{item.feedback}"</div>
-                      <div className="text-xs text-gray-500 flex items-center mt-1">
-                        <Star className="h-3 w-3 text-yellow-400 mr-1" />
-                        {item.rating}/5 - {item.user}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
+            {/* Empty space to maintain alignment */}
+            <div className="lg:col-span-1"></div>
           </div>
 
           {/* Service Categories */}
@@ -715,118 +925,349 @@ export default function StaffServicesDashboard() {
           </div>
           {/* Modal Add Basic Package */}
           {showAddModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-              <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-4xl relative">
-                <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setShowAddModal(false)}>&times;</button>
-                <h2 className="text-xl font-bold mb-4">Add Basic Package</h2>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-5xl relative max-h-[95vh] overflow-y-auto">
+                <button 
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" 
+                  onClick={() => setShowAddModal(false)}
+                >
+                  ×
+                </button>
+                
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-1">Add Basic Package</h2>
+                  <p className="text-sm text-gray-600">Create a new basic package for your services</p>
+                </div>
+
                 <form className="space-y-4" onSubmit={handleSubmit}>
-                  <div className="flex flex-row flex-wrap gap-4 items-end">
-                  {/* BasicPlanType dropdown */}
-                    <div className="flex flex-col w-56">
-                    <label className="block text-sm font-medium mb-1">Basic Plan Type</label>
-                      <select name="basicPlanTypeId" value={form.basicPlanTypeId} onChange={handleChange} className="border rounded px-3 py-2">
-                      <option value="">Select Type</option>
-                      {basicPlanTypes.map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                    {/* Nếu là Living thì chọn roomTypeName và hiển thị pricePerNight */}
-                    {selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && (
-                      <div className="flex flex-col w-56">
-                      <label className="block text-sm font-medium mb-1">Room Type</label>
-                        <select name="roomTypeId" value={form.roomTypeId} onChange={handleChange} className="border rounded px-3 py-2">
-                        <option value="">Select Room</option>
-                        {accommodationOptions.map((r: any) => (
-                            <option key={r.id} value={r.id}>{r.roomTypeName} ({r.pricePerNight.toLocaleString()}₫/đêm)</option>
+                  {/* Step 1: Basic Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                      Basic Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Type *</label>
+                        <select 
+                          name="basicPlanTypeId" 
+                          value={form.basicPlanTypeId} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Package Type</option>
+                          {basicPlanTypes.map((b: any) => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
                           ))}
                         </select>
-                        {selectedRoom && (
-                          <span className="text-xs text-gray-500 mt-1">Giá phòng: {selectedRoom.pricePerNight.toLocaleString()}₫/đêm</span>
+                      </div>
+                      
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Code *</label>
+                        <input 
+                          name="code" 
+                          value={form.code} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Enter package code"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Name *</label>
+                        <input 
+                          name="name" 
+                          value={form.name} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Enter package name"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea 
+                        name="description" 
+                        value={form.description} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter package description"
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Step 2: Configuration */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">2</span>
+                      Configuration
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {/* Room Type for Accommodation */}
+                      {selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && (
+                        <div className="flex flex-col">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Room Type *</label>
+                          <select 
+                            name="roomTypeId" 
+                            value={form.roomTypeId} 
+                            onChange={handleChange} 
+                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            required
+                          >
+                            <option value="">Select Room Type</option>
+                            {accommodationOptions.map((r: any) => (
+                              <option key={r.id} value={r.id}>
+                                {r.roomTypeName} ({r.pricePerNight.toLocaleString()}₫/night)
+                              </option>
+                            ))}
+                          </select>
+                          {selectedRoom && (
+                            <div className="mt-1 p-2 bg-blue-50 rounded border border-blue-200">
+                              <div className="text-xs text-blue-800">
+                                <span className="font-medium">Room Price:</span> {selectedRoom.pricePerNight.toLocaleString()}₫/night
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Entitlement for Life Activities */}
+                      {selectedPlanType && selectedPlanType.code === 'LIFEACTIVITIES' && (
+                        <div className="flex flex-col">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Entitlement *</label>
+                          <select 
+                            value={selectedEntitlementId} 
+                            onChange={e => setSelectedEntitlementId(e.target.value)} 
+                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            required
+                          >
+                            <option value="">Select Entitlement</option>
+                            {entitlements.map((e: any) => (
+                              <option key={e.id} value={e.id}>
+                                {e.nextUServiceName} - {e.price?.toLocaleString()}₫
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Duration */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Duration *</label>
+                        <select
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          value={selectedDurationIds[0] || ""}
+                          onChange={e => setSelectedDurationIds([e.target.value])}
+                          required
+                        >
+                          <option value="">Select Duration</option>
+                          {durations.map((d: any) => (
+                            <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Pricing Summary */}
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                      Pricing Summary
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-lg p-3 border border-blue-200">
+                        <div className="text-sm text-gray-600 mb-1">Final Price</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {finalPrice > 0 ? finalPrice.toLocaleString() + "₫" : "0₫"}
+                        </div>
+                        {finalPrice > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {selectedPlanType?.code === "ACCOMMODATION" && selectedRoom && (
+                              <span>Based on {selectedRoom.roomTypeName} × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
+                            )}
+                            {selectedPlanType?.code === 'LIFEACTIVITIES' && selectedEntitlementId && (
+                              <span>Based on selected entitlement × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                    {/* Code */}
-                    <div className="flex flex-col w-40">
-                      <label className="block text-sm font-medium mb-1">Code</label>
-                      <input name="code" value={form.code} onChange={handleChange} className="border rounded px-3 py-2" />
-                    </div>
-                    {/* Name */}
-                    <div className="flex flex-col w-40">
-                      <label className="block text-sm font-medium mb-1">Name</label>
-                      <input name="name" value={form.name} onChange={handleChange} className="border rounded px-3 py-2" />
-                    </div>
-                    {/* Description */}
-                    <div className="flex flex-col w-56">
-                      <label className="block text-sm font-medium mb-1">Description</label>
-                      <input name="description" value={form.description} onChange={handleChange} className="border rounded px-3 py-2" />
-                    </div>
-                    {/* Duration (chỉ cho chọn 1) */}
-                    <div className="flex flex-col w-40">
-                      <label className="block text-sm font-medium mb-1">Duration</label>
-                      <select
-                        className="border rounded px-3 py-2"
-                        value={selectedDurationIds[0] || ""}
-                        onChange={e => setSelectedDurationIds([e.target.value])}
-                      >
-                        <option value="">Chọn thời hạn</option>
-                        {durations.map((d: any) => (
-                          <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {/* Hiển thị giá cuối cùng */}
-                    <div className="flex flex-col w-56">
-                      <label className="block text-sm font-medium mb-1">Giá cuối cùng</label>
-                      <div className="text-lg font-bold text-blue-600">{finalPrice > 0 ? finalPrice.toLocaleString() + "₫" : "-"}</div>
-                    </div>
-                    {selectedPlanType && selectedPlanType.code === 'LIFEACTIVITIES' && (
-                      <div className="flex flex-col w-56">
-                        <label className="block text-sm font-medium mb-1">Entitlement</label>
-                        <select value={selectedEntitlementId} onChange={e => setSelectedEntitlementId(e.target.value)} className="border rounded px-3 py-2">
-                          <option value="">Chọn entitlement</option>
-                          {entitlements.map((e: any) => (
-                            <option key={e.id} value={e.id}>{e.nextUServiceName} (Giá: {e.price?.toLocaleString()}₫, {e.note})</option>
-                          ))}
-                        </select>
+                      
+                      <div className="bg-white rounded-lg p-3 border border-blue-200">
+                        <div className="text-sm text-gray-600 mb-1">Package Details</div>
+                        <div className="space-y-0.5 text-xs">
+                          <div><span className="font-medium">Type:</span> {selectedPlanType?.name || 'Not selected'}</div>
+                          <div><span className="font-medium">Duration:</span> {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'Not selected'}</div>
+                          {selectedPlanType?.code === "ACCOMMODATION" && selectedRoom && (
+                            <div><span className="font-medium">Room:</span> {selectedRoom.roomTypeName}</div>
+                          )}
+                          {selectedPlanType?.code === 'LIFEACTIVITIES' && selectedEntitlementId && (
+                            <div><span className="font-medium">Service:</span> {entitlements.find((e: any) => e.id === selectedEntitlementId)?.nextUServiceName}</div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
-                  <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mt-4">Add Basic Package</button>
+
+                  {/* Submit Button */}
+                  <div className="flex justify-end space-x-3 pt-3 border-t border-gray-200">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowAddModal(false)}
+                      className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center text-sm"
+                      disabled={!form.basicPlanTypeId || !form.code || !form.name || selectedDurationIds.length === 0}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Basic Package
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>
           )}
           {/* Thêm popup detail */}
           {showDetailModal && selectedPlan && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg relative animate-fade-in">
-                <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl" onClick={() => setShowDetailModal(false)}>&times;</button>
-                <h2 className="text-2xl font-bold mb-4 text-blue-700">Basic Package Detail</h2>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+                <button 
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" 
+                  onClick={() => setShowDetailModal(false)}
+                >
+                  ×
+                </button>
+                
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-1">Basic Package Detail</h2>
+                  <p className="text-sm text-gray-600">Package information and specifications</p>
+                </div>
+
                 {(() => {
                   const plan = selectedPlan
                   const hasData = plan.name || plan.basicPlanType || plan.status || plan.price || (plan.planDurations && plan.planDurations.length > 0) || plan.description || plan.locationName || plan.code || (plan.entitlements && plan.entitlements.length > 0)
-                  if (!hasData) return <div className="text-gray-400 italic">No data available.</div>
+                  if (!hasData) return (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 text-lg mb-2">📋</div>
+                      <div className="text-gray-500 italic">No data available for this package.</div>
+                    </div>
+                  )
+                  
                   return (
-                    <div className="space-y-2 text-gray-700">
-                      {plan.name && <div><b>Name:</b> {plan.name}</div>}
-                      {plan.basicPlanType && <div><b>Type:</b> {plan.basicPlanType}</div>}
-                      {plan.status && <div><b>Status:</b> {plan.status}</div>}
-                      {plan.price !== undefined && plan.price !== null && plan.price !== '' && <div><b>Price:</b> {Number(plan.price).toLocaleString('vi-VN')}₫</div>}
-                      {plan.planDurations && plan.planDurations.length > 0 && <div><b>Duration:</b> {plan.planDurations.map((d: any) => `${d.planDurationValue} ${d.planDurationUnit}`).join(', ')}</div>}
-                      {plan.description && <div><b>Description:</b> {plan.description}</div>}
-                      {plan.locationName && <div><b>Location:</b> {plan.locationName}</div>}
-                      {plan.code && <div><b>Code:</b> {plan.code}</div>}
+                    <div className="space-y-5">
+                      {/* Pricing Card - Normal display */}
+                      {(plan.price !== undefined && plan.price !== null && plan.price !== '') && (
+                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                          <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">💰</span>
+                            Pricing Information
+                          </h3>
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <span className="text-sm font-medium text-gray-600">Price:</span>
+                              <span className="text-sm text-gray-800 font-semibold text-right">
+                                {Number(plan.price).toLocaleString('vi-VN')}₫
+                              </span>
+                            </div>
+                            {plan.planDurations && plan.planDurations.length > 0 && (
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm font-medium text-gray-600">Duration:</span>
+                                <span className="text-sm text-gray-800 text-right">
+                                  {plan.planDurations.map((d: any) => `${d.planDurationValue} ${d.planDurationUnit}`).join(', ')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Basic Info Card */}
+                      <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+                          <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">📦</span>
+                          Package Details
+                        </h3>
+                        <div className="space-y-3">
+                          {plan.name && (
+                            <div className="flex justify-between items-start">
+                              <span className="text-sm font-medium text-gray-600">Name:</span>
+                              <span className="text-sm text-gray-800 font-semibold text-right max-w-[60%] break-words">{plan.name}</span>
+                            </div>
+                          )}
+                          {plan.code && (
+                            <div className="flex justify-between items-start">
+                              <span className="text-sm font-medium text-gray-600">Code:</span>
+                              <span className="text-sm text-gray-800 font-mono text-right max-w-[60%] break-all">{plan.code}</span>
+                            </div>
+                          )}
+                          {plan.basicPlanType && (
+                            <div className="flex justify-between items-start">
+                              <span className="text-sm font-medium text-gray-600">Type:</span>
+                              <span className="text-sm text-gray-800 text-right max-w-[60%] break-words">{plan.basicPlanType}</span>
+                            </div>
+                          )}
+                          {plan.status && (
+                            <div className="flex justify-between items-start">
+                              <span className="text-sm font-medium text-gray-600">Status:</span>
+                              <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                                plan.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {plan.status}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Location Card */}
+                      {plan.locationName && (
+                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">📍</span>
+                            Location
+                          </h3>
+                          <div className="text-sm text-gray-800 font-medium">{plan.locationName}</div>
+                        </div>
+                      )}
+
+                      {/* Description Card */}
+                      {plan.description && (
+                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">📝</span>
+                            Description
+                          </h3>
+                          <div className="text-sm text-gray-700 leading-relaxed max-h-32 overflow-y-auto bg-gray-50 rounded p-3">
+                            {plan.description}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Entitlements Card */}
                       {plan.entitlements && plan.entitlements.length > 0 && (
-                        <div>
-                          <b>Entitlements:</b>
-                          <ul className="list-disc ml-6">
+                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">🎯</span>
+                            Entitlements
+                          </h3>
+                          <div className="space-y-2">
                             {plan.entitlements.map((e: any, idx: number) => (
-                              <li key={idx}>
-                                {e.nextUServiceName || e.entitlementId || e.entitlementRuleId || ''}
-                              </li>
+                              <div key={idx} className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+                                {e.nextUServiceName || e.entitlementId || e.entitlementRuleId || 'Unknown entitlement'}
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -838,127 +1279,326 @@ export default function StaffServicesDashboard() {
 
           {/* Modal Add Combo Package */}
           {showAddComboModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl relative animate-fade-in">
-                <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl" onClick={() => setShowAddComboModal(false)}>&times;</button>
-                <h2 className="text-2xl font-bold mb-4 text-blue-700">Add Combo Package</h2>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-5xl relative max-h-[95vh] overflow-y-auto">
+                <button 
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" 
+                  onClick={() => setShowAddComboModal(false)}
+                >
+                  ×
+                </button>
+                
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-1">Add Combo Package</h2>
+                  <p className="text-sm text-gray-600">Create a new combo package by combining accommodation and life activities</p>
+                </div>
+
                 <form className="space-y-4" onSubmit={handleAddComboSubmit}>
-                  <div className="flex flex-row flex-wrap gap-4 items-end">
-                    <div className="flex flex-col w-40">
-                      <label className="block text-sm font-medium mb-1">Code</label>
-                      <input name="code" value={formCombo.code} onChange={e => setFormCombo(f => ({ ...f, code: e.target.value }))} className="border rounded px-3 py-2" />
-                    </div>
-                    <div className="flex flex-col w-40">
-                    <label className="block text-sm font-medium mb-1">Name</label>
-                      <input name="name" value={formCombo.name} onChange={e => setFormCombo(f => ({ ...f, name: e.target.value }))} className="border rounded px-3 py-2" />
-                    </div>
-                    <div className="flex flex-col w-40">
-                      <label className="block text-sm font-medium mb-1">Discount Rate (%)</label>
-                      <input name="discountRate" type="number" value={formCombo.discountRate} onChange={e => setFormCombo(f => ({ ...f, discountRate: Number(e.target.value) }))} className="border rounded px-3 py-2" />
-                  </div>
-                    <div className="flex flex-col w-56">
-                      <label className="block text-sm font-medium mb-1">Package Level</label>
-                      <select name="packageLevelId" value={formCombo.packageLevelId} onChange={e => setFormCombo(f => ({ ...f, packageLevelId: e.target.value }))} className="border rounded px-3 py-2">
-                        <option value="">Select Level</option>
-                        {packageLevels.map((l: any) => (
-                          <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                      </select>
-                  </div>
-                  <div className="flex flex-col w-56">
-                    <label className="block text-sm font-medium mb-1">Combo Duration</label>
-                    <select value={comboDurationId} onChange={e => setComboDurationId(e.target.value)} className="border rounded px-3 py-2">
-                      <option value="">Chọn thời hạn</option>
-                      {durations.map((d: any) => (
-                        <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Nút chọn Accommodation và Life Activities */}
-                <div className="flex flex-row gap-8 mt-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Accommodation (chọn 1)</label>
-                    <button type="button" className="px-3 py-2 bg-blue-100 rounded hover:bg-blue-200 text-blue-800" onClick={() => setShowSelectAccommodation(true)}>
-                      {selectedComboBasic.accommodation ? basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)?.name : 'Chọn Accommodation'}
-                    </button>
-                    {/* Tag đã chọn */}
-                    {selectedComboBasic.accommodation && (
-                      <div className="flex items-center mt-2">
-                        <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold shadow border border-blue-300 flex items-center gap-2">
-                          {basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)?.name}
-                          <button type="button" className="ml-1 text-blue-500 hover:text-red-500 text-lg font-bold focus:outline-none" onClick={() => setSelectedComboBasic(prev => ({ ...prev, accommodation: null }))} title="Bỏ chọn">
-                            ×
-                          </button>
-                        </span>
+                  {/* Step 1: Basic Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                      Basic Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Code *</label>
+                        <input 
+                          name="code" 
+                          value={formCombo.code} 
+                          onChange={e => setFormCombo(f => ({ ...f, code: e.target.value }))} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Enter combo code"
+                          required
+                        />
                       </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Life Activities (chọn 2-3)</label>
-                    <button type="button" className="px-3 py-2 bg-green-100 rounded hover:bg-green-200 text-green-800" onClick={() => setShowSelectLife(true)}>
-                      {selectedComboBasic.lifeActivities.length > 0 ? `${selectedComboBasic.lifeActivities.length} đã chọn` : 'Chọn Life Activities'}
-                    </button>
-                    {/* Tag đã chọn */}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {selectedComboBasic.lifeActivities.map(id => (
-                        <span key={id} className="px-4 py-2 bg-green-50 text-green-800 rounded-full text-sm font-semibold shadow border border-green-300 flex items-center gap-2 hover:bg-green-100 transition">
-                          {basicPlans.find((b: any) => b.id === id)?.name}
-                          <button type="button" className="ml-1 text-green-500 hover:text-red-500 text-lg font-bold focus:outline-none" onClick={() => setSelectedComboBasic(prev => ({ ...prev, lifeActivities: prev.lifeActivities.filter(x => x !== id) }))} title="Bỏ chọn">
-                            ×
-                          </button>
-                        </span>
-                      ))}
+                      
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Name *</label>
+                        <input 
+                          name="name" 
+                          value={formCombo.name} 
+                          onChange={e => setFormCombo(f => ({ ...f, name: e.target.value }))} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Enter combo name"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Level *</label>
+                        <select 
+                          name="packageLevelId" 
+                          value={formCombo.packageLevelId} 
+                          onChange={e => setFormCombo(f => ({ ...f, packageLevelId: e.target.value }))} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Package Level</option>
+                          {packageLevels.map((l: any) => (
+                            <option key={l.id} value={l.id}>{l.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
-                {/* Bảng chi tiết giá các basic đã chọn */}
-                {comboDurationId && (comboPriceInfo.details.length > 0) && (
-                  <div className="mt-6">
-                    <table className="min-w-full text-sm border rounded-lg overflow-hidden shadow-sm">
-                      <thead>
-                        <tr className="bg-gray-100 text-gray-700">
-                          <th className="px-3 py-2 border">Tên gói</th>
-                          <th className="px-3 py-2 border">Giá gốc</th>
-                          <th className="px-3 py-2 border">Duration Basic</th>
-                          <th className="px-3 py-2 border">Số lần nhân</th>
-                          <th className="px-3 py-2 border">Tổng giá</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {comboPriceInfo.details.map((d, idx) => d && (
-                          <tr key={idx} className="hover:bg-blue-50">
-                            <td className="px-3 py-2 border font-medium text-blue-900">{d.name}</td>
-                            <td className="px-3 py-2 border">{d.price?.toLocaleString()}₫</td>
-                            <td className="px-3 py-2 border">{d.duration}</td>
-                            <td className="px-3 py-2 border text-center">{d.months}</td>
-                            <td className="px-3 py-2 border font-bold text-right">{d.total?.toLocaleString()}₫</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-gray-50 font-semibold">
-                          <td className="px-3 py-2 border text-right" colSpan={4}>Tổng cộng</td>
-                          <td className="px-3 py-2 border text-blue-700 text-right">{comboPriceInfo.total.toLocaleString()}₫</td>
-                        </tr>
-                        <tr className="bg-gray-50 font-semibold">
-                          <td className="px-3 py-2 border text-right" colSpan={4}>Giảm giá ({formCombo.discountRate || 0}%)</td>
-                          <td className="px-3 py-2 border text-red-600 text-right">-{comboPriceInfo.discountAmount.toLocaleString()}₫</td>
-                        </tr>
-                        <tr className="bg-blue-100 font-bold">
-                          <td className="px-3 py-2 border text-right" colSpan={4}>Thành tiền</td>
-                          <td className="px-3 py-2 border text-green-700 text-right text-lg">{comboPriceInfo.totalAfterDiscount.toLocaleString()}₫</td>
-                        </tr>
-                      </tfoot>
-                    </table>
+
+                  {/* Step 2: Package Configuration */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">2</span>
+                      Package Configuration
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Duration Selection */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Combo Duration *</label>
+                        <select 
+                          value={comboDurationId} 
+                          onChange={e => setComboDurationId(e.target.value)} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Duration</option>
+                          {durations.map((d: any) => (
+                            <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {/* Discount Rate */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Discount Rate (%)</label>
+                        <input 
+                          name="discountRate" 
+                          type="number" 
+                          min="0"
+                          max="100"
+                          value={formCombo.discountRate} 
+                          onChange={e => setFormCombo(f => ({ ...f, discountRate: Number(e.target.value) }))} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
                   </div>
-                )}
-                {comboError && <div className="text-red-500 text-sm mt-2">{comboError}</div>}
-                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mt-4">Add Combo Package</button>
-              </form>
+
+                  {/* Step 3: Package Selection */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                      Package Selection
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Accommodation Selection */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-gray-700">Accommodation Package *</label>
+                          <span className="text-xs text-gray-500">Select 1 package</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-left transition-colors ${
+                            selectedComboBasic.accommodation 
+                              ? 'border-blue-300 bg-blue-50' 
+                              : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                          }`}
+                          onClick={() => setShowSelectAccommodation(true)}
+                        >
+                          {selectedComboBasic.accommodation ? (
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-blue-900">
+                                {basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)?.name}
+                              </span>
+                              <button 
+                                type="button" 
+                                className="text-red-500 hover:text-red-700 text-lg font-bold"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedComboBasic(prev => ({ ...prev, accommodation: null }))
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-gray-500">
+                              <span className="mr-2">🏠</span>
+                              <span>Select Accommodation Package</span>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Life Activities Selection */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-gray-700">Life Activities Packages *</label>
+                          <span className="text-xs text-gray-500">Select 2-3 packages</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-left transition-colors ${
+                            selectedComboBasic.lifeActivities.length > 0 
+                              ? 'border-green-300 bg-green-50' 
+                              : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
+                          }`}
+                          onClick={() => setShowSelectLife(true)}
+                        >
+                          {selectedComboBasic.lifeActivities.length > 0 ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-green-900">
+                                  {selectedComboBasic.lifeActivities.length} package(s) selected
+                                </span>
+                                <button 
+                                  type="button" 
+                                  className="text-red-500 hover:text-red-700 text-lg font-bold"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedComboBasic(prev => ({ ...prev, lifeActivities: [] }))
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {selectedComboBasic.lifeActivities.map(id => (
+                                  <span key={id} className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                                    {basicPlans.find((b: any) => b.id === id)?.name}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-gray-500">
+                              <span className="mr-2">🎯</span>
+                              <span>Select Life Activities Packages</span>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 4: Pricing Summary */}
+                  {comboDurationId && comboPriceInfo.details.length > 0 && (
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                        <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">4</span>
+                        Pricing Summary
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Final Price Display */}
+                        <div className="bg-white rounded-lg p-4 border border-blue-200">
+                          <div className="text-sm text-gray-600 mb-1">Final Price After Discount</div>
+                          <div className="text-2xl font-bold text-blue-600">
+                            {comboPriceInfo.totalAfterDiscount.toLocaleString()}₫
+                          </div>
+                          {formCombo.discountRate > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              <span className="line-through">{comboPriceInfo.total.toLocaleString()}₫</span>
+                              <span className="text-green-600 ml-2">(-{formCombo.discountRate}% discount)</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Package Details */}
+                        <div className="bg-white rounded-lg p-4 border border-blue-200">
+                          <div className="text-sm text-gray-600 mb-2">Selected Packages</div>
+                          <div className="space-y-1 text-xs">
+                            <div><span className="font-medium">Accommodation:</span> {selectedComboBasic.accommodation ? basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)?.name : 'Not selected'}</div>
+                            <div><span className="font-medium">Life Activities:</span> {selectedComboBasic.lifeActivities.length} package(s)</div>
+                            <div><span className="font-medium">Duration:</span> {comboDurationId ? durations.find((d: any) => String(d.id) === String(comboDurationId))?.value + ' ' + durations.find((d: any) => String(d.id) === String(comboDurationId))?.unit : 'Not selected'}</div>
+                            <div><span className="font-medium">Level:</span> {formCombo.packageLevelId ? packageLevels.find((l: any) => l.id === formCombo.packageLevelId)?.name : 'Not selected'}</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Detailed Price Breakdown */}
+                      <div className="mt-4 bg-white rounded-lg border border-blue-200 overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                          <h4 className="text-sm font-medium text-gray-700">Price Breakdown</h4>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Package</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Base Price</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Duration</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Multiplier</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {comboPriceInfo.details.map((d, idx) => d && (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                  <td className="px-3 py-2 font-medium text-gray-900">{d.name}</td>
+                                  <td className="px-3 py-2 text-right text-gray-600">{d.price?.toLocaleString()}₫</td>
+                                  <td className="px-3 py-2 text-right text-gray-600">{d.duration}</td>
+                                  <td className="px-3 py-2 text-right text-gray-600">×{d.months}</td>
+                                  <td className="px-3 py-2 text-right font-semibold text-gray-900">{d.total?.toLocaleString()}₫</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50">
+                              <tr className="font-semibold">
+                                <td className="px-3 py-2 text-right" colSpan={4}>Subtotal</td>
+                                <td className="px-3 py-2 text-right text-blue-700">{comboPriceInfo.total.toLocaleString()}₫</td>
+                              </tr>
+                              {formCombo.discountRate > 0 && (
+                                <tr className="font-semibold">
+                                  <td className="px-3 py-2 text-right" colSpan={4}>Discount ({formCombo.discountRate}%)</td>
+                                  <td className="px-3 py-2 text-right text-red-600">-{comboPriceInfo.discountAmount.toLocaleString()}₫</td>
+                                </tr>
+                              )}
+                              <tr className="font-bold bg-blue-50">
+                                <td className="px-3 py-2 text-right" colSpan={4}>Final Total</td>
+                                <td className="px-3 py-2 text-right text-green-700 text-lg">{comboPriceInfo.totalAfterDiscount.toLocaleString()}₫</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error Display */}
+                  {comboError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <span className="text-red-500 mr-2">⚠️</span>
+                        <span className="text-sm text-red-700">{comboError}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <div className="flex justify-end space-x-3 pt-3 border-t border-gray-200">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowAddComboModal(false)}
+                      className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center text-sm"
+                      disabled={!formCombo.code || !formCombo.name || !formCombo.packageLevelId || !comboDurationId || !selectedComboBasic.accommodation || selectedComboBasic.lifeActivities.length < 2}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Combo Package
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-)}
+          )}
 
 {/* Popup chọn Accommodation */}
 {showSelectAccommodation && (
