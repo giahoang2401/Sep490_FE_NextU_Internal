@@ -1,12 +1,13 @@
 "use client"
 import React, { useEffect, useState } from "react";
-import StaffServicesSidebar from "./StaffServicesSidebar";
+import Sidebar from "../shared/sidebar";
 import TopNav from "../shared/topNav";
 import RoleLayout from "../shared/roleLayout";
 import DashboardCard from "../shared/dashboardCard";
 import DataTable from "../shared/dataTable";
 import api from "../../../../utils/axiosConfig";
-import type { User, TableColumn } from "../types";
+import type { User, TableColumn, NavigationItem } from "../types";
+import { MapPin, Users, UserPlus, BarChart3, DoorOpen } from "lucide-react";
 
 function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: React.ReactNode; onClose: () => void }) {
   if (!open) return null;
@@ -28,12 +29,21 @@ function Modal({ open, title, children, onClose }: { open: boolean; title: strin
   );
 }
 
+const navigation: NavigationItem[] = [
+  { name: "Regional Dashboard", href: "/admin", icon: MapPin, current: false },
+  { name: "Manage Users", href: "/admin/users", icon: Users },
+  { name: "Manage Staff", href: "/admin/staff", icon: UserPlus },
+  { name: "Room Management", href: "/admin/rooms", icon: DoorOpen, current: true },
+  { name: "Regional Reports", href: "/admin/reports", icon: BarChart3 },
+];
+
 const mockUser: User = {
-  id: "5",
-  name: "Carlos Martinez",
-  email: "carlos@nextu.com",
-  role: "Staff_Services",
+  id: "2",
+  name: "Jane Smith", 
+  email: "jane@nextu.com",
+  role: "Admin",
   location: "San Francisco, CA",
+  region: "West Coast",
   avatar: "/placeholder.svg?height=32&width=32",
 };
 
@@ -60,7 +70,7 @@ interface RoomInstance {
   addOnFee?: number | string;
 }
 
-export default function RoomDashboard() {
+export default function AdminRoomDashboard() {
   // State
   const [options, setOptions] = useState<AccommodationOption[]>([]);
   const [rooms, setRooms] = useState<RoomInstance[]>([]);
@@ -295,7 +305,7 @@ export default function RoomDashboard() {
 
   return (
     <RoleLayout>
-      <StaffServicesSidebar />
+      <Sidebar navigation={navigation} title="Next U" userRole="Regional Admin" />
       <div className="lg:pl-64 flex flex-col flex-1 bg-gray-50 min-h-screen">
         <TopNav user={mockUser} title="Room Management" />
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
@@ -407,7 +417,6 @@ export default function RoomDashboard() {
                   ))}
                 </select>
               </div>
-              {/* TODO: Add select for roomTypeId, nextUServiceId if needed */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Capacity *</label>
@@ -701,4 +710,4 @@ export default function RoomDashboard() {
       </div>
     </RoleLayout>
   );
-} 
+}

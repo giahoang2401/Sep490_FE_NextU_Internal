@@ -6,9 +6,10 @@ interface DataTableProps {
   columns: TableColumn[]
   data: TableRow[]
   actions?: (row: TableRow) => React.ReactNode
+  onRowClick?: (row: TableRow) => void;
 }
 
-export default function DataTable({ columns, data, actions }: DataTableProps) {
+export default function DataTable({ columns, data, actions, onRowClick }: DataTableProps) {
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-md">
       <div className="overflow-x-auto">
@@ -40,9 +41,9 @@ export default function DataTable({ columns, data, actions }: DataTableProps) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {data.map((row, index) => (
-              <tr key={index} className="hover:bg-gray-50">
+              <tr key={index} className={`hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''}`} onClick={onRowClick ? () => onRowClick(row) : undefined}>
                 {columns.map((column) => (
-                  <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${column.key === 'description' ? 'max-w-xs truncate' : ''}`}>
                     {row[column.key]}
                   </td>
                 ))}

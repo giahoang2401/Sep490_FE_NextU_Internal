@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, GraduationCap, Lightbulb, MessageSquare, Plus, Star } from "lucide-react"
+import { UserPlus, CreditCard, Users, Package, Calendar, Plus, Star, Home, GraduationCap, Lightbulb, MessageSquare } from "lucide-react"
 import Sidebar from "../shared/sidebar"
 import TopNav from "../shared/topNav"
 import DataTable from "../shared/dataTable"
@@ -10,17 +10,18 @@ import { useState, useEffect } from "react"
 import axios from "../../../../utils/axiosConfig"
 
 const navigation: NavigationItem[] = [
-  { name: "NextLiving", href: "/internal/staff-services", icon: Home, current: true },
-  { name: "NextAcademy", href: "/internal/staff-services/academy", icon: GraduationCap },
-  { name: "Propose Activities", href: "/internal/staff-services/activities", icon: Lightbulb },
-  { name: "Member Feedback", href: "/internal/staff-services/feedback", icon: MessageSquare },
+  { name: "Applications", href: "/staff-onboarding", icon: UserPlus },
+  { name: "Payment Guide", href: "/staff-onboarding/payments", icon: CreditCard },
+  { name: "User Status", href: "/staff-onboarding/status", icon: Users },
+  { name: "Create Packages", href: "/staff-onboarding/packages", icon: Package, current: true },
+  { name: "Schedule Events", href: "/staff-onboarding/events", icon: Calendar },
 ]
 
 const mockUser: User = {
-  id: "5",
-  name: "Carlos Martinez",
-  email: "carlos@nextu.com",
-  role: "Staff_Services",
+  id: "4",
+  name: "Emily Chen",
+  email: "emily@nextu.com",
+  role: "Staff_Onboarding",
   location: "San Francisco, CA",
   avatar: "/placeholder.svg?height=32&width=32",
 }
@@ -45,7 +46,7 @@ const feedbackData = [
   { service: "Meal Planning", feedback: "Helpful but could use more variety", rating: 4, user: "Sarah J." },
 ]
 
-export default function StaffServicesDashboard() {
+export default function CreatePackageDashboard() {
   // TẤT CẢ các hook phải ở đầu thân hàm component
   const [showAddModal, setShowAddModal] = useState(false)
   const [basicPlanTypes, setBasicPlanTypes] = useState<any[]>([])
@@ -576,10 +577,10 @@ export default function StaffServicesDashboard() {
 
   return (
     <RoleLayout>
-      <Sidebar navigation={navigation} title="Next U" userRole="Services Staff" />
+      <Sidebar navigation={navigation} title="Next U" userRole="Staff Onboarding" />
 
       <div className="lg:pl-64 flex flex-col flex-1">
-        <TopNav user={mockUser} title="Service Management" />
+        <TopNav user={mockUser} title="Package Creation Management" />
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           {/* Service Stats */}
@@ -629,7 +630,13 @@ export default function StaffServicesDashboard() {
               <div className="bg-white shadow rounded-lg">
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="text-lg font-medium text-gray-900">Basic packages</h3>
-
+                  <button
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    onClick={() => setShowAddModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Basic Package
+                  </button>
                 </div>
                 
                 {/* Search and Filter Section */}
@@ -760,7 +767,13 @@ export default function StaffServicesDashboard() {
               <div className="bg-white shadow rounded-lg">
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="text-lg font-medium text-gray-900">Combo Packages</h3>
-
+                  <button
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    onClick={() => setShowAddComboModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Combo Package
+                  </button>
                 </div>
                 
                 {/* Search and Filter Section for Combo */}
@@ -910,7 +923,221 @@ export default function StaffServicesDashboard() {
               </div>
             </div>
           </div>
+          {/* Modal Add Basic Package */}
+          {showAddModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-5xl relative max-h-[95vh] overflow-y-auto">
+                <button 
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" 
+                  onClick={() => setShowAddModal(false)}
+                >
+                  ×
+                </button>
+                
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-1">Add Basic Package</h2>
+                  <p className="text-sm text-gray-600">Create a new basic package for your services</p>
+                </div>
 
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                  {/* Step 1: Basic Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                      Basic Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Type *</label>
+                        <select 
+                          name="basicPlanTypeId" 
+                          value={form.basicPlanTypeId} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Package Type</option>
+                          {basicPlanTypes.map((b: any) => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Code *</label>
+                        <input 
+                          name="code" 
+                          value={form.code} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Enter package code"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Name *</label>
+                        <input 
+                          name="name" 
+                          value={form.name} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Enter package name"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea 
+                        name="description" 
+                        value={form.description} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter package description"
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Step 2: Configuration */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">2</span>
+                      Configuration
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {/* Room Type for Accommodation */}
+                      {selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && (
+                        <div className="flex flex-col">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Room Type *</label>
+                          <select 
+                            name="roomTypeId" 
+                            value={form.roomTypeId} 
+                            onChange={handleChange} 
+                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            required
+                          >
+                            <option value="">Select Room Type</option>
+                            {accommodationOptions.map((r: any) => (
+                              <option key={r.id} value={r.id}>
+                                {r.roomTypeName} ({r.pricePerNight.toLocaleString()}₫/night)
+                              </option>
+                            ))}
+                          </select>
+                          {selectedRoom && (
+                            <div className="mt-1 p-2 bg-blue-50 rounded border border-blue-200">
+                              <div className="text-xs text-blue-800">
+                                <span className="font-medium">Room Price:</span> {selectedRoom.pricePerNight.toLocaleString()}₫/night
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Entitlement for Life Activities */}
+                      {selectedPlanType && selectedPlanType.code === 'LIFEACTIVITIES' && (
+                        <div className="flex flex-col">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Entitlement *</label>
+                          <select 
+                            value={selectedEntitlementId} 
+                            onChange={e => setSelectedEntitlementId(e.target.value)} 
+                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            required
+                          >
+                            <option value="">Select Entitlement</option>
+                            {entitlements.map((e: any) => (
+                              <option key={e.id} value={e.id}>
+                                {e.nextUServiceName} - {e.price?.toLocaleString()}₫
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Duration */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Duration *</label>
+                        <select
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          value={selectedDurationIds[0] || ""}
+                          onChange={e => setSelectedDurationIds([e.target.value])}
+                          required
+                        >
+                          <option value="">Select Duration</option>
+                          {durations.map((d: any) => (
+                            <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Pricing Summary */}
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                      <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                      Pricing Summary
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-lg p-3 border border-blue-200">
+                        <div className="text-sm text-gray-600 mb-1">Final Price</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {finalPrice > 0 ? finalPrice.toLocaleString() + "₫" : "0₫"}
+                        </div>
+                        {finalPrice > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {selectedPlanType?.code === "ACCOMMODATION" && selectedRoom && (
+                              <span>Based on {selectedRoom.roomTypeName} × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
+                            )}
+                            {selectedPlanType?.code === 'LIFEACTIVITIES' && selectedEntitlementId && (
+                              <span>Based on selected entitlement × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="bg-white rounded-lg p-3 border border-blue-200">
+                        <div className="text-sm text-gray-600 mb-1">Package Details</div>
+                        <div className="space-y-0.5 text-xs">
+                          <div><span className="font-medium">Type:</span> {selectedPlanType?.name || 'Not selected'}</div>
+                          <div><span className="font-medium">Duration:</span> {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'Not selected'}</div>
+                          {selectedPlanType?.code === "ACCOMMODATION" && selectedRoom && (
+                            <div><span className="font-medium">Room:</span> {selectedRoom.roomTypeName}</div>
+                          )}
+                          {selectedPlanType?.code === 'LIFEACTIVITIES' && selectedEntitlementId && (
+                            <div><span className="font-medium">Service:</span> {entitlements.find((e: any) => e.id === selectedEntitlementId)?.nextUServiceName}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex justify-end space-x-3 pt-3 border-t border-gray-200">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowAddModal(false)}
+                      className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center text-sm"
+                      disabled={!form.basicPlanTypeId || !form.code || !form.name || selectedDurationIds.length === 0}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Basic Package
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
           {/* Thêm popup detail */}
           {showDetailModal && selectedPlan && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">

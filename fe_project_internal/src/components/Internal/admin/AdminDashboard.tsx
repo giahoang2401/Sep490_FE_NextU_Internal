@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MapPin, Users, UserPlus, BarChart3, Briefcase } from "lucide-react"
+import { MapPin, Users, UserPlus, BarChart3, Briefcase, DoorOpen } from "lucide-react"
 import Sidebar from "../shared/sidebar"
 import TopNav from "../shared/topNav"
 import DashboardCard from "../shared/dashboardCard"
@@ -12,10 +12,11 @@ import type { NavigationItem, User, TableColumn, CreateAccountData } from "../ty
 import api from "../../../../utils/axiosConfig";
 
 const navigation: NavigationItem[] = [
-  { name: "Regional Dashboard", href: "/internal/admin", icon: MapPin, current: true },
-  { name: "Manage Users", href: "/internal/admin/users", icon: Users },
-  { name: "Manage Staff", href: "/internal/admin/staff", icon: UserPlus },
-  { name: "Regional Reports", href: "/internal/admin/reports", icon: BarChart3 },
+  { name: "Regional Dashboard", href: "/admin", icon: MapPin, current: true },
+  { name: "Manage Users", href: "/admin/users", icon: Users },
+  { name: "Manage Staff", href: "/admin/staff", icon: UserPlus },
+  { name: "Room Management", href: "/admin/rooms", icon: DoorOpen },
+  { name: "Regional Reports", href: "/admin/reports", icon: BarChart3 },
 ]
 
 const mockUser: User = {
@@ -42,7 +43,7 @@ const staffData = [
   { name: "Rachel Green", email: "rachel@nextu.com", role: "Staff_Content", status: "Pending" },
 ]
 
-const availableStaffRoles = ["Manager", "Staff_Membership", "Staff_Services", "Staff_Content"]
+const availableStaffRoles = ["Manager", "Staff_Onboarding", "Staff_Services", "Staff_Content"]
 
 const availablePartnerRoles = ["Partner_Coaching", "Partner_Services", "Partner_Content"]
 
