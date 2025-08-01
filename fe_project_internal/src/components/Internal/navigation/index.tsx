@@ -31,6 +31,7 @@ export const roleNavigations = {
   admin: [
     { name: "Dashboard", href: "/admin", icon: Home },
     { name: "Room Management", href: "/admin/rooms", icon: Building },
+    { name: "Event Approval", href: "/admin/event-approval", icon: Calendar },
     { name: "User Management", href: "/admin/users", icon: Users },
     { name: "Reports", href: "/admin/reports", icon: FileText },
   ],

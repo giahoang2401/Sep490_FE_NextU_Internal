@@ -8,6 +8,7 @@ import DataTable from "../shared/dataTable";
 import api from "../../../utils/axiosConfig"; 
 import type { User, TableColumn, NavigationItem } from "../types";
 import { MapPin, Users, UserPlus, BarChart3, DoorOpen } from "lucide-react";
+import { getNavigationForRole } from "../navigation";
 
 function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: React.ReactNode; onClose: () => void }) {
   if (!open) return null;
@@ -28,14 +29,6 @@ function Modal({ open, title, children, onClose }: { open: boolean; title: strin
     </div>
   );
 }
-
-const navigation: NavigationItem[] = [
-  { name: "Regional Dashboard", href: "/admin", icon: MapPin, current: false },
-  { name: "Manage Users", href: "/admin/users", icon: Users },
-  { name: "Manage Staff", href: "/admin/staff", icon: UserPlus },
-  { name: "Room Management", href: "/admin/rooms", icon: DoorOpen, current: true },
-  { name: "Regional Reports", href: "/admin/reports", icon: BarChart3 },
-];
 
 const mockUser: User = {
   id: "2",
@@ -71,6 +64,9 @@ interface RoomInstance {
 }
 
 export default function AdminRoomDashboard() {
+  // Get navigation for admin role with current path
+  const navigation = getNavigationForRole("admin", "/admin/rooms");
+  
   // State
   const [options, setOptions] = useState<AccommodationOption[]>([]);
   const [rooms, setRooms] = useState<RoomInstance[]>([]);

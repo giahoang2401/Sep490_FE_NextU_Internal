@@ -9,15 +9,8 @@ import DataTable from "../shared/dataTable"
 import CreateAccountForm from "../shared/createAccountForm"
 import RoleLayout from "../shared/roleLayout"
 import type { NavigationItem, User, TableColumn, CreateAccountData } from "../types"
-import api from "../../../utils/axiosConfig";  
-
-const navigation: NavigationItem[] = [
-  { name: "Regional Dashboard", href: "/admin", icon: MapPin, current: true },
-  { name: "Manage Users", href: "/admin/users", icon: Users },
-  { name: "Manage Staff", href: "/admin/staff", icon: UserPlus },
-  { name: "Room Management", href: "/admin/rooms", icon: DoorOpen },
-  { name: "Regional Reports", href: "/admin/reports", icon: BarChart3 },
-]
+import api from "../../../utils/axiosConfig"
+import { getNavigationForRole } from "../navigation"
 
 const mockUser: User = {
   id: "2",
@@ -52,6 +45,9 @@ export default function AdminDashboard() {
   const [createFormType, setCreateFormType] = useState<"staff" | "partner">("staff")
   const [adminLocationId, setAdminLocationId] = useState<string>("")
   const [adminName, setAdminName] = useState<string>("")
+
+  // Get navigation for admin role
+  const navigation = getNavigationForRole("admin", "/admin")
 
   useEffect(() => {
     // Lấy thông tin user từ localStorage
