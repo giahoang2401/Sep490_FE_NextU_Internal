@@ -5,7 +5,7 @@ import TopNav from "../shared/topNav";
 import RoleLayout from "../shared/roleLayout";
 import DashboardCard from "../shared/dashboardCard";
 import DataTable from "../shared/dataTable";
-import api from "../../../../utils/axiosConfig";
+import api from "../../../utils/axiosConfig"; 
 import type { User, TableColumn, NavigationItem } from "../types";
 import { MapPin, Users, UserPlus, BarChart3, DoorOpen } from "lucide-react";
 

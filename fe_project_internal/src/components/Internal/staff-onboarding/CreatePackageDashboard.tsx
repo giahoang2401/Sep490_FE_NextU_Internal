@@ -7,7 +7,7 @@ import DataTable from "../shared/dataTable"
 import RoleLayout from "../shared/roleLayout"
 import type { NavigationItem, User, TableColumn } from "../types"
 import { useState, useEffect } from "react"
-import axios from "../../../../utils/axiosConfig"
+import axios from "../../../utils/axiosConfig"
 
 const navigation: NavigationItem[] = [
   { name: "Applications", href: "/staff-onboarding", icon: UserPlus },

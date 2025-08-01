@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import api from "../../../../utils/axiosConfig";
+import api from "../../../utils/axiosConfig"; 
 import {
   Globe,
   Users,

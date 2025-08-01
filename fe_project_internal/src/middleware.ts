@@ -38,7 +38,7 @@ export function middleware(request: NextRequest) {
   }
   // Staff_Content chỉ được vào /internal/staff-content
   if (request.nextUrl.pathname.startsWith('/staff-content')) {
-    if (!user || user.role !== 'staff_Content') {
+    if (!user || user.role !== 'staff_content') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
   }

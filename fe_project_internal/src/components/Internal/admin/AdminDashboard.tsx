@@ -9,7 +9,7 @@ import DataTable from "../shared/dataTable"
 import CreateAccountForm from "../shared/createAccountForm"
 import RoleLayout from "../shared/roleLayout"
 import type { NavigationItem, User, TableColumn, CreateAccountData } from "../types"
-import api from "../../../../utils/axiosConfig";
+import api from "../../../utils/axiosConfig";  
 
 const navigation: NavigationItem[] = [
   { name: "Regional Dashboard", href: "/admin", icon: MapPin, current: true },

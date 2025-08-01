@@ -1,0 +1,141 @@
+1. Khởi tạo tạo mới sự kiện / workshop
+Bước 1: Đăng nhập vào Cổng thông tin Quản trị
+●	Đăng nhập staff content: Quản trị viên đăng nhập bằng tên người dùng và mật khẩu hoặc sử dụng phương thức xác thực an toàn như xác thực hai yếu tố (2FA).
+
+●	Truy cập Bảng điều khiển: Sau khi đăng nhập thành công, quản trị viên sẽ vào màn hình chính nơi có thể quản lý các hoạt động như sự kiện, booking, người dùng và báo cáo.
+
+Bước 2: Điều hướng đến khu vực quản lý Sự kiện/Workshop
+●	Chọn mục "Sự kiện / Workshop": Quản trị viên chọn tab hoặc mục "Sự kiện / Workshop" từ menu bên để bắt đầu quá trình tạo mới.
+
+●	Tạo sự kiện mới: Nhấn nút "Tạo sự kiện mới" để bắt đầu quá trình thiết lập sự kiện.
+
+________________________________________
+2. Nhập thông tin cơ bản của sự kiện / workshop
+Bước 3: Nhập thông tin chi tiết
+●	Tên sự kiện: Nhập tiêu đề (ví dụ: "Retreat Yoga & Sức khỏe", "Workshop Vẽ Sáng tạo").
+
+●	Loại sự kiện: Chọn từ các danh mục có sẵn như:
+
+○	Sức khỏe & Thể chất (Yoga, Thiền, Spa)
+
+○	Sáng tạo & Nghệ thuật (Vẽ, Nhiếp ảnh, Âm nhạc)
+
+○	Văn hoá & Xã hội (Nấu ăn, Học ngôn ngữ, Tour)
+
+○	Giải trí & Thư giãn (Chiếu phim, Hoạt động mạo hiểm)
+
+●	Mô tả sự kiện: Nhập mô tả chi tiết, mục tiêu, điểm nổi bật, kỳ vọng và các đặc điểm đặc biệt.
+
+●	Hình ảnh/Video: Tải lên hình ảnh hoặc video quảng bá để hiển thị trên trang người dùng.
+
+●	Tags/Keywords: Thêm thẻ gắn nhãn cho sự kiện như "Yoga", "Sức khoẻ", "Workshop sáng tạo".
+
+________________________________________
+3. Lịch trình & Khả năng tham gia
+Bước 4: Thiết lập ngày giờ sự kiện
+●	Ngày bắt đầu: Chọn ngày bắt đầu sự kiện.
+
+●	Ngày kết thúc (nếu có): Đối với sự kiện kéo dài nhiều ngày.
+
+●	Thời gian bắt đầu: Nhập giờ bắt đầu (ví dụ: 9h sáng cho lớp yoga).
+
+●	Sự kiện lặp lại (Tuỳ chọn): Chỉ định lặp hàng tuần, hàng tháng, hoặc ngày cụ thể.
+
+Bước 5: Thời lượng sự kiện
+●	Thời lượng: Nhập thời lượng sự kiện (ví dụ: 2 giờ, nửa ngày, cả ngày, cuối tuần).
+
+________________________________________
+4. Giá vé & Gói sự kiện
+Bước 6: Cấu hình giá vé và tuỳ chọn
+●	Loại vé: Tạo các loại vé như:
+
+○	Thường: quyền tham gia cơ bản.
+
+○	VIP: quyền lợi cao cấp (chỗ ngồi tốt, gặp gỡ khách mời…).
+
+○	Nhóm: Giảm giá theo nhóm.
+
+●	Giá vé: Thiết lập giá từng loại vé.
+
+●	Giảm giá / Ưu đãi sớm: Tạo ưu đãi đặt sớm (ví dụ: -20% nếu đặt trước 30 ngày).
+
+●	Tiện ích thêm (Add-ons):
+
+○	Buổi riêng tư: +$100
+
+○	Bữa ăn: +$25/ngày
+
+○	Xe đưa đón: tính thêm
+
+●	Mô hình giá: Theo ngày, gói trọn gói, hoặc nhiều ngày.
+
+●	Điều chỉnh giá: Giá mùa cao điểm, thấp điểm, tùy theo mùa.
+
+________________________________________
+5. Số lượng & đăng ký
+Bước 7: Thiết lập số lượng
+●	Tổng số vé: Nhập số lượng tối đa người tham gia (VD: 30 vé cho workshop yoga).
+
+●	Giới hạn đặt chỗ: Giới hạn số vé mỗi người có thể mua (VD: tối đa 5 vé).
+
+●	Danh sách chờ: Cho phép đăng ký danh sách chờ nếu sự kiện đã hết chỗ.
+
+________________________________________
+6. Địa điểm tổ chức
+Bước 8: Thêm địa điểm
+●	Địa điểm: Nhập tên, địa chỉ, thông tin liên hệ.
+
+●	Địa điểm trong hệ thống: Chọn phòng cụ thể nếu tổ chức trong khu phức hợp (VD: không gian của NextNest).
+
+●	Mô tả địa điểm: Mô tả tiện ích như: rộng rãi, gần công viên, có lối đi cho người khuyết tật.
+
+●	Bản đồ: Tích hợp bản đồ, hiển thị vị trí và địa danh lân cận.
+
+________________________________________
+7. Tuỳ chỉnh khác
+Bước 9: Hướng dẫn đặc biệt
+●	Hướng dẫn riêng: Ví dụ: mang thảm yoga, trang phục, đậu xe ở đâu.
+
+●	Y tế / An toàn: Thêm các yêu cầu an toàn sức khỏe (VD: quy tắc phòng dịch, bảo hiểm).
+
+●	Bao gồm / Không bao gồm: Ghi rõ các dịch vụ đi kèm (bữa ăn, tài liệu) và không đi kèm (xe đưa đón…).
+
+________________________________________
+8. Xem trước & xuất bản
+Bước 10: Xem lại thông tin
+●	Xem trước trang sự kiện: Xem tổng thể giao diện sự kiện như khách hàng sẽ thấy.
+
+●	Kiểm tra cuối cùng: Đảm bảo đủ thông tin, chính xác và hấp dẫn.
+
+Bước 11: Đăng sự kiện
+●	Xuất bản: Nhấn "Đăng" để sự kiện hiển thị cho khách đặt chỗ.
+
+●	Sự kiện sẽ hiển thị trên app/web để người dùng xem và đặt chỗ.
+
+________________________________________
+9. Sau sự kiện
+Bước 12: Quản lý booking và tham dự
+●	Theo dõi đặt chỗ: Quản trị viên có thể xem danh sách người đã đặt, danh sách chờ.
+
+●	Gửi nhắc nhở: Gửi thông báo qua email/SMS/app trước sự kiện (VD: hướng dẫn chuẩn bị, check-in…).
+
+________________________________________
+Tóm tắt quy trình tạo sự kiện dành cho staff content
+1.	Đăng nhập và vào mục Sự kiện/Workshop.
+
+2.	Nhập thông tin: tên, loại, mô tả, hình ảnh.
+
+3.	Thiết lập ngày giờ, thời lượng.
+
+4.	Đặt giá vé, gói ưu đãi, add-on.
+
+5.	Thiết lập số lượng và giới hạn đặt vé.
+
+6.	Thêm thông tin địa điểm và bản đồ.
+
+7.	Thêm hướng dẫn, quy định y tế và dịch vụ bao gồm.
+
+8.	Xem trước và xuất bản sự kiện.
+
+9.	Quản lý đặt chỗ, gửi nhắc nhở sau khi đăng.
+

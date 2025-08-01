@@ -1,4 +1,4 @@
-import StaffContentDashboard from "@/components/internal/staff-content/StaffContentDashboard"
+import StaffContentDashboard from "@/components/Internal/staff-content/StaffContentDashboard"
 
 export default function StaffContentPage() {
   return <StaffContentDashboard />

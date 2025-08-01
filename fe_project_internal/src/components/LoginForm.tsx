@@ -4,7 +4,7 @@ import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Shield, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { jwtDecode } from "jwt-decode"
-import api from "../../utils/axiosConfig"
+import api from "../utils/axiosConfig"
 import { setCookie } from "cookies-next"
 
 interface LoginCredentials {
@@ -59,15 +59,19 @@ export default function LoginForm() {
       setCookie("nextu_internal_user", JSON.stringify(userInfo), { path: '/' })
 
       const roleKey = data.role.toLowerCase()
+      console.log("🚀 Login Response - Role:", data.role, "| Role Key:", roleKey)
+      
       const roleRoutes = {
         super_admin: "/super-admin",
-        admin: "/admin",
+        admin: "/admin", 
         manager: "/manager",
         staff_onboarding: "/staff-onboarding",
         staff_service: "/staff-services",
         staff_content: "/staff-content",
       }
       const redirectPath = roleRoutes[roleKey as keyof typeof roleRoutes] || "/"
+      console.log("🎯 Redirect Path:", redirectPath)
+      
       router.push(redirectPath)
     } catch (err: any) {
       setError(err.response?.data?.error_description || err.response?.data?.message || err.message || "Login failed")

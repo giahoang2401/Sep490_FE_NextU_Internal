@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import api from "../../../../utils/axiosConfig";
+import api from "../../../utils/axiosConfig"; 
 import { UserPlus, CreditCard, Users, Package, Calendar, Mail, CheckCircle } from "lucide-react"
 import Sidebar from "../shared/sidebar"
 import TopNav from "../shared/topNav"

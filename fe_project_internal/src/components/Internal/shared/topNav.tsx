@@ -2,7 +2,7 @@
 
 import type { User } from "../types"
 import { Bell, Search, ChevronDown, Settings } from "lucide-react"
-import { logout } from "../../../../utils/auth"
+import { logout } from "../../../utils/auth" 
 import { useRouter } from "next/navigation"
 
 interface TopNavProps {
