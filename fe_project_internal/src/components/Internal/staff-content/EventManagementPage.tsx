@@ -46,9 +46,16 @@ interface UpdateLevelRequest {
 
 interface EventSchedule {
   id: string
-  startDate: string
-  endDate: string
-  repeatPattern: string | null
+  startTime: string
+  endTime: string
+  ticketTypes: ScheduleTicketType[]
+}
+
+interface ScheduleTicketType {
+  id: string
+  name: string
+  price: number
+  totalQuantity: number
 }
 
 interface TicketType {
@@ -84,38 +91,45 @@ interface Event {
   levelName: string
   isPublished: boolean
   schedules: EventSchedule[]
-  ticketTypes: TicketType[]
   addOns: AddOn[]
   locations: EventLocation[]
 }
 
+// New interface for creating pending events
 interface PendingEventRequest {
   title: string
-  code: string
   description: string
+  notes: string // Changed from optional to required
   categoryId: number
   levelId: number
-  schedules: {
-    startDate: string
-    endDate: string
-    repeatPattern: string
-  }[]
-  ticketTypes: {
-    name: string
-    price: number
-    totalQuantity: number
-  }[]
+  scheduleMasters: ScheduleMaster[]
   addOns: {
     name: string
-    description: string
     price: number
   }[]
   locations: {
     name: string
     address: string
-    description?: string
-    mapUrl?: string
   }[]
+}
+
+interface ScheduleMaster {
+  startDate: string
+  recurrenceEndDate: string
+  duration: string // Format: "2:00:00"
+  recurrenceType: number // Always 2 for weekly
+  repeatCount: number
+  ticketTypes: ScheduleMasterTicketType[]
+}
+
+interface ScheduleMasterTicketType {
+  name: string
+  price: number
+  totalQuantity: number
+  maxPerUser: number
+  isEarlyBird: boolean
+  earlyBirdDeadline: string
+  discountRate: number // 1 for 100% discount as per new API example
 }
 
 const mockUser: User = {
@@ -167,12 +181,11 @@ export default function EventManagementPage() {
   // Form state
   const [formData, setFormData] = useState<PendingEventRequest>({
     title: "",
-    code: "",
     description: "",
+    notes: "", // Changed back to empty string to allow user input
     categoryId: 0,
     levelId: 0,
-    schedules: [],
-    ticketTypes: [],
+    scheduleMasters: [],
     addOns: [],
     locations: []
   })
@@ -181,8 +194,95 @@ export default function EventManagementPage() {
   const [tempSchedule, setTempSchedule] = useState({
     startDate: "",
     endDate: "",
-    repeatPattern: "Week"
+    duration: "2:00:00",
+    repeatCount: 1
   })
+
+  const [tempTicketTypes, setTempTicketTypes] = useState<ScheduleMasterTicketType[]>([])
+  const [tempEarlyBirdDeadline, setTempEarlyBirdDeadline] = useState("")
+  const [tempDiscountRate, setTempDiscountRate] = useState(1) // 1 for 100% discount as per new API example
+
+  // Helper function to format datetime for input
+  const formatDateTimeForInput = (dateString: string) => {
+    if (!dateString) return ""
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return ""
+      // Format for datetime-local input: YYYY-MM-DDTHH:MM
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      return `${year}-${month}-${day}T${hours}:${minutes}`
+    } catch (error) {
+      return ""
+    }
+  }
+
+  // Helper function to format duration with leading zeros (e.g., "2:00:00" -> "02:00:00")
+  const formatDuration = (duration: string): string => {
+    if (!duration || !duration.includes(':')) {
+      // If duration is not in the correct format, convert it
+      const hours = parseInt(duration) || 2
+      return `${String(hours).padStart(2, '0')}:00:00`
+    }
+    
+    // Split the duration into parts
+    const parts = duration.split(':')
+    if (parts.length >= 3) {
+      // Format: "H:MM:SS" -> "HH:MM:SS"
+      const hours = String(parseInt(parts[0]) || 0).padStart(2, '0')
+      const minutes = String(parseInt(parts[1]) || 0).padStart(2, '0')
+      const seconds = String(parseInt(parts[2]) || 0).padStart(2, '0')
+      return `${hours}:${minutes}:${seconds}`
+    } else if (parts.length === 2) {
+      // Format: "H:MM" -> "HH:MM:00"
+      const hours = String(parseInt(parts[0]) || 0).padStart(2, '0')
+      const minutes = String(parseInt(parts[1]) || 0).padStart(2, '0')
+      return `${hours}:${minutes}:00`
+    } else {
+      // Single number -> "HH:00:00"
+      const hours = String(parseInt(parts[0]) || 2).padStart(2, '0')
+      return `${hours}:00:00`
+    }
+  }
+
+  // Helper function to update formData from tempSchedule
+  const updateFormDataFromTempSchedule = (updatedTempSchedule?: typeof tempSchedule) => {
+    const scheduleToUse = updatedTempSchedule || tempSchedule
+    if (scheduleToUse.startDate && scheduleToUse.endDate) {
+      try {
+        const startDate = new Date(scheduleToUse.startDate)
+        const endDate = new Date(scheduleToUse.endDate)
+        
+        // Validate dates
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          console.error("Invalid date format")
+          return
+        }
+        
+        // Format duration with leading zeros
+        const formattedDuration = formatDuration(scheduleToUse.duration || "2:00:00")
+        
+        const newScheduleMasters = [{
+          startDate: startDate.toISOString(),
+          recurrenceEndDate: endDate.toISOString(),
+          duration: formattedDuration,
+          recurrenceType: 2,
+          repeatCount: scheduleToUse.repeatCount || 1,
+          ticketTypes: tempTicketTypes || []
+        }]
+        
+        setFormData(prevData => ({
+          ...prevData,
+          scheduleMasters: newScheduleMasters
+        }))
+      } catch (error) {
+        console.error("Error updating schedule:", error)
+      }
+    }
+  }
 
   // API Service Functions
   const fetchEvents = async () => {
@@ -238,25 +338,94 @@ export default function EventManagementPage() {
   const createPendingEvent = async (eventData: PendingEventRequest) => {
     setIsSubmitting(true)
     try {
-      const response = await api.post("/api/PendingEvent", eventData)
+      // Validate required fields
+      if (!eventData.title || !eventData.title.trim()) {
+        Notify.failure("Title is required")
+        return
+      }
+      if (!eventData.description || !eventData.description.trim()) {
+        Notify.failure("Description is required")
+        return
+      }
+      if (!eventData.notes || !eventData.notes.trim()) {
+        Notify.failure("Notes is required")
+        return
+      }
+      if (!eventData.categoryId || eventData.categoryId < 1) {
+        Notify.failure("Please select a valid category")
+        return
+      }
+      if (!eventData.levelId || eventData.levelId < 1) {
+        Notify.failure("Please select a valid level")
+        return
+      }
+      if (!eventData.scheduleMasters || eventData.scheduleMasters.length === 0) {
+        Notify.failure("At least one schedule is required")
+        return
+      }
+
+      // Validate schedule data
+      for (const schedule of eventData.scheduleMasters) {
+        if (!schedule.startDate || !schedule.recurrenceEndDate) {
+          Notify.failure("Start date and end date are required for all schedules")
+          return
+        }
+      }
+
+      // Format the data according to the successful API response
+      const requestData = {
+        title: eventData.title.trim(),
+        description: eventData.description.trim(),
+        notes: eventData.notes.trim(),
+        categoryId: parseInt(eventData.categoryId.toString()),
+        levelId: parseInt(eventData.levelId.toString()),
+        scheduleMasters: eventData.scheduleMasters.map(schedule => ({
+          startDate: schedule.startDate,
+          recurrenceEndDate: schedule.recurrenceEndDate,
+          duration: formatDuration(schedule.duration || "2:00:00"),
+          recurrenceType: 2, // Always 2 for weekly
+          repeatCount: schedule.repeatCount || 1,
+          ticketTypes: schedule.ticketTypes && schedule.ticketTypes.length > 0 ? schedule.ticketTypes.map(ticket => ({
+            name: ticket.name || "",
+            price: parseInt(ticket.price.toString()) || 0,
+            totalQuantity: parseInt(ticket.totalQuantity.toString()) || 0,
+            maxPerUser: parseInt(ticket.maxPerUser.toString()) || 1,
+            isEarlyBird: ticket.isEarlyBird !== undefined ? ticket.isEarlyBird : true,
+            earlyBirdDeadline: ticket.earlyBirdDeadline || new Date().toISOString(),
+            discountRate: parseFloat(ticket.discountRate.toString()) || 0.15
+          })) : []
+        })),
+        addOns: eventData.addOns ? eventData.addOns.map(addon => ({
+          name: addon.name || "",
+          price: parseInt(addon.price.toString()) || 0
+        })) : [],
+        locations: eventData.locations ? eventData.locations.map(location => ({
+          name: location.name || "",
+          address: location.address || ""
+        })) : []
+      }
+
+      console.log("Sending request data:", JSON.stringify(requestData, null, 2)) // Debug log
+
+      const response = await api.post("/api/PendingEvent", requestData)
       Notify.success("Event submitted for review successfully!")
       setShowCreateForm(false)
       setFormData({
         title: "",
-        code: "",
         description: "",
+        notes: "",
         categoryId: 0,
         levelId: 0,
-        schedules: [],
-        ticketTypes: [],
+        scheduleMasters: [],
         addOns: [],
         locations: []
       })
       setCurrentStep(1)
       fetchEvents() // Refresh events list
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating pending event:", error)
-      Notify.failure("Failed to submit event for review")
+      console.error("Error response:", error.response?.data)
+      Notify.failure(error.response?.data?.message || "Failed to submit event for review")
     } finally {
       setIsSubmitting(false)
     }
@@ -343,17 +512,29 @@ export default function EventManagementPage() {
     fetchLevels()
   }, [])
 
-  // Sync tempSchedule with formData when step changes
+  // Initialize tempSchedule when entering step 2
   useEffect(() => {
-    if (currentStep === 2 && formData.schedules.length > 0) {
-      const schedule = formData.schedules[0]
-      setTempSchedule({
-        startDate: new Date(schedule.startDate).toISOString().slice(0, 16),
-        endDate: new Date(schedule.endDate).toISOString().slice(0, 16),
-        repeatPattern: schedule.repeatPattern || "Week"
-      })
+    if (currentStep === 2) {
+      if (formData.scheduleMasters.length === 0) {
+        // Initialize with default values if no schedule exists
+        setTempSchedule({
+          startDate: "",
+          endDate: "",
+          duration: "02:00:00", // Use formatted duration with leading zeros
+          repeatCount: 1
+        })
+      } else {
+        // Sync with existing schedule data
+        const schedule = formData.scheduleMasters[0]
+        setTempSchedule({
+          startDate: formatDateTimeForInput(schedule.startDate),
+          endDate: formatDateTimeForInput(schedule.recurrenceEndDate),
+          duration: schedule.duration,
+          repeatCount: schedule.repeatCount
+        })
+      }
     }
-  }, [currentStep, formData.schedules])
+  }, [currentStep, formData.scheduleMasters])
 
   // Filter events by status
   const publishedEvents = events.filter(event => event.isPublished)
@@ -596,7 +777,7 @@ export default function EventManagementPage() {
                         {event.schedules.length > 0 && (
                           <div className="flex items-center">
                             <Calendar className="h-4 w-4 mr-2" />
-                            {formatDate(event.schedules[0].startDate)} at {formatTime(event.schedules[0].startDate)}
+                            {formatDate(event.schedules[0].startTime)} at {formatTime(event.schedules[0].startTime)}
                           </div>
                         )}
                         <div className="flex items-center">
@@ -605,14 +786,17 @@ export default function EventManagementPage() {
                         </div>
                         <div className="flex items-center">
                           <DollarSign className="h-4 w-4 mr-2" />
-                          {event.ticketTypes.length > 0 ? 
-                            `${event.ticketTypes[0].price.toLocaleString('en-US')} VND` : 
+                          {event.schedules.length > 0 && event.schedules[0].ticketTypes.length > 0 ? 
+                            `${event.schedules[0].ticketTypes[0].price.toLocaleString('en-US')} VND` : 
                             "Price TBD"
                           }
                         </div>
                         <div className="flex items-center">
                           <Users className="h-4 w-4 mr-2" />
-                          {event.ticketTypes.reduce((total, ticket) => total + ticket.totalQuantity, 0)} total capacity
+                          {event.schedules.length > 0 ? 
+                            event.schedules.reduce((total, schedule) => 
+                              total + schedule.ticketTypes.reduce((scheduleTotal, ticket) => scheduleTotal + ticket.totalQuantity, 0), 0
+                            ) : 0} total capacity
                         </div>
                       </div>
                       <div className="flex justify-end space-x-2 mt-4">
@@ -655,7 +839,7 @@ export default function EventManagementPage() {
                         {event.schedules.length > 0 && (
                           <div className="flex items-center">
                             <Calendar className="h-4 w-4 mr-2" />
-                            {formatDate(event.schedules[0].startDate)} at {formatTime(event.schedules[0].startDate)}
+                            {formatDate(event.schedules[0].startTime)} at {formatTime(event.schedules[0].startTime)}
                           </div>
                         )}
                         <div className="flex items-center">
@@ -736,16 +920,6 @@ export default function EventManagementPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Event Code</label>
-                      <input
-                        type="text"
-                        value={formData.code}
-                        onChange={(e) => setFormData({...formData, code: e.target.value})}
-                        placeholder="Enter unique event code"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Event Category</label>
                       <select 
                         value={formData.categoryId}
@@ -785,6 +959,16 @@ export default function EventManagementPage() {
                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                      <textarea
+                        rows={3}
+                        value={formData.notes}
+                        onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                        placeholder="Enter any additional notes or comments..."
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-4">
                     <div>
@@ -819,25 +1003,19 @@ export default function EventManagementPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
                         <input
                           type="datetime-local"
-                          value={tempSchedule.startDate}
-                                                      onChange={(e) => {
-                              const startDate = e.target.value
-                              setTempSchedule({
-                                ...tempSchedule,
-                                startDate: startDate
-                              })
-                              // Update formData when user changes
-                              if (startDate && tempSchedule.endDate) {
-                                setFormData({
-                                  ...formData,
-                                  schedules: [{
-                                    startDate: new Date(startDate).toISOString(),
-                                    endDate: new Date(tempSchedule.endDate).toISOString(),
-                                    repeatPattern: tempSchedule.repeatPattern
-                                  }]
-                                })
-                              }
-                            }}
+                          value={formatDateTimeForInput(tempSchedule.startDate)}
+                          onChange={(e) => {
+                            const startDate = e.target.value
+                            const updatedTempSchedule = {
+                              ...tempSchedule,
+                              startDate: startDate
+                            }
+                            setTempSchedule(updatedTempSchedule)
+                            // Update formData when user changes
+                            if (startDate && tempSchedule.endDate) {
+                              updateFormDataFromTempSchedule(updatedTempSchedule)
+                            }
+                          }}
                           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -845,58 +1023,71 @@ export default function EventManagementPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
                         <input
                           type="datetime-local"
-                          value={tempSchedule.endDate}
-                                                      onChange={(e) => {
-                              const endDate = e.target.value
-                              setTempSchedule({
-                                ...tempSchedule,
-                                endDate: endDate
-                              })
-                              // Update formData when user changes
-                              if (tempSchedule.startDate && endDate) {
-                                setFormData({
-                                  ...formData,
-                                  schedules: [{
-                                    startDate: new Date(tempSchedule.startDate).toISOString(),
-                                    endDate: new Date(endDate).toISOString(),
-                                    repeatPattern: tempSchedule.repeatPattern
-                                  }]
-                                })
-                              }
-                            }}
+                          value={formatDateTimeForInput(tempSchedule.endDate)}
+                          onChange={(e) => {
+                            const endDate = e.target.value
+                            const updatedTempSchedule = {
+                              ...tempSchedule,
+                              endDate: endDate
+                            }
+                            setTempSchedule(updatedTempSchedule)
+                            // Update formData when user changes
+                            if (tempSchedule.startDate && endDate) {
+                              updateFormDataFromTempSchedule(updatedTempSchedule)
+                            }
+                          }}
                           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Repeat Pattern</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
                       <select 
-                        value={tempSchedule.repeatPattern}
+                        value={tempSchedule.duration}
                         onChange={(e) => {
-                          const repeatPattern = e.target.value
-                          setTempSchedule({
+                          const duration = e.target.value
+                          const updatedTempSchedule = {
                             ...tempSchedule,
-                            repeatPattern: repeatPattern
-                          })
-                          // Update formData when repeat pattern changes
+                            duration: duration
+                          }
+                          setTempSchedule(updatedTempSchedule)
+                          // Update formData when duration changes
                           if (tempSchedule.startDate && tempSchedule.endDate) {
-                            setFormData({
-                              ...formData,
-                              schedules: [{
-                                startDate: new Date(tempSchedule.startDate).toISOString(),
-                                endDate: new Date(tempSchedule.endDate).toISOString(),
-                                repeatPattern: repeatPattern
-                              }]
-                            })
+                            updateFormDataFromTempSchedule(updatedTempSchedule)
                           }
                         }}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="Week">Weekly</option>
-                        <option value="Month">Monthly</option>
-                        <option value="None">No Repeat</option>
+                        <option value="2:00:00">2 hours</option>
+                        <option value="4:00:00">4 hours</option>
+                        <option value="6:00:00">6 hours</option>
+                        <option value="8:00:00">8 hours</option>
+                        <option value="10:00:00">10 hours</option>
+                        <option value="12:00:00">12 hours</option>
                       </select>
-                      <p className="text-xs text-gray-500 mt-1">Select repeat pattern for the event</p>
+                      <p className="text-xs text-gray-500 mt-1">Select duration for each event session</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Repeat Count</label>
+                      <input
+                        type="number"
+                        value={tempSchedule.repeatCount}
+                        onChange={(e) => {
+                          const repeatCount = parseInt(e.target.value) || 1
+                          const updatedTempSchedule = {
+                            ...tempSchedule,
+                            repeatCount: repeatCount
+                          }
+                          setTempSchedule(updatedTempSchedule)
+                          // Update formData when repeat count changes
+                          if (tempSchedule.startDate && tempSchedule.endDate) {
+                            updateFormDataFromTempSchedule(updatedTempSchedule)
+                          }
+                        }}
+                        placeholder="1"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Number of times the event will repeat weekly</p>
                     </div>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -924,15 +1115,16 @@ export default function EventManagementPage() {
                     </div>
                     <button
                       onClick={() => {
-                        const newTicketType = {
+                        const newTicketType: ScheduleMasterTicketType = {
                           name: "",
                           price: 0,
-                          totalQuantity: 0
+                          totalQuantity: 0,
+                          maxPerUser: 1,
+                          isEarlyBird: true,
+                          earlyBirdDeadline: "",
+                          discountRate: 0.15
                         }
-                        setFormData({
-                          ...formData,
-                          ticketTypes: [...formData.ticketTypes, newTicketType]
-                        })
+                        setTempTicketTypes([...tempTicketTypes, newTicketType])
                       }}
                       className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                     >
@@ -941,22 +1133,23 @@ export default function EventManagementPage() {
                     </button>
                   </div>
                   
-                  {formData.ticketTypes.length === 0 ? (
+                  {tempTicketTypes.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                       <DollarSign className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                       <h5 className="text-lg font-medium text-gray-900 mb-2">No ticket types added yet</h5>
                       <p className="text-sm mb-4">Start by adding your first ticket type to define pricing and capacity</p>
                       <button
                         onClick={() => {
-                          const newTicketType = {
+                          const newTicketType: ScheduleMasterTicketType = {
                             name: "",
                             price: 0,
-                            totalQuantity: 0
+                            totalQuantity: 0,
+                            maxPerUser: 1,
+                            isEarlyBird: true,
+                            earlyBirdDeadline: "",
+                            discountRate: 0.15
                           }
-                          setFormData({
-                            ...formData,
-                            ticketTypes: [...formData.ticketTypes, newTicketType]
-                          })
+                          setTempTicketTypes([...tempTicketTypes, newTicketType])
                         }}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                       >
@@ -966,39 +1159,33 @@ export default function EventManagementPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {formData.ticketTypes.map((ticket, index) => (
+                      {tempTicketTypes.map((ticket, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-6 bg-gray-50">
                           <div className="flex items-center justify-between mb-4">
                             <h5 className="font-medium text-gray-900">Ticket Type {index + 1}</h5>
                             <button
                               onClick={() => {
-                                const updatedTickets = formData.ticketTypes.filter((_, i) => i !== index)
-                                setFormData({
-                                  ...formData,
-                                  ticketTypes: updatedTickets
-                                })
+                                const updatedTickets = tempTicketTypes.filter((_, i) => i !== index)
+                                setTempTicketTypes(updatedTickets)
                               }}
                               className="text-red-600 hover:text-red-800 p-1"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Ticket Name</label>
                               <input
                                 type="text"
                                 value={ticket.name}
                                 onChange={(e) => {
-                                  const updatedTickets = [...formData.ticketTypes]
+                                  const updatedTickets = [...tempTicketTypes]
                                   updatedTickets[index] = {
                                     ...updatedTickets[index],
                                     name: e.target.value
                                   }
-                                  setFormData({
-                                    ...formData,
-                                    ticketTypes: updatedTickets
-                                  })
+                                  setTempTicketTypes(updatedTickets)
                                 }}
                                 placeholder="e.g., Regular, VIP, Early Bird"
                                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1010,15 +1197,12 @@ export default function EventManagementPage() {
                                 type="number"
                                 value={ticket.price}
                                 onChange={(e) => {
-                                  const updatedTickets = [...formData.ticketTypes]
+                                  const updatedTickets = [...tempTicketTypes]
                                   updatedTickets[index] = {
                                     ...updatedTickets[index],
                                     price: parseInt(e.target.value) || 0
                                   }
-                                  setFormData({
-                                    ...formData,
-                                    ticketTypes: updatedTickets
-                                  })
+                                  setTempTicketTypes(updatedTickets)
                                 }}
                                 placeholder="0"
                                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1030,19 +1214,73 @@ export default function EventManagementPage() {
                                 type="number"
                                 value={ticket.totalQuantity}
                                 onChange={(e) => {
-                                  const updatedTickets = [...formData.ticketTypes]
+                                  const updatedTickets = [...tempTicketTypes]
                                   updatedTickets[index] = {
                                     ...updatedTickets[index],
                                     totalQuantity: parseInt(e.target.value) || 0
                                   }
-                                  setFormData({
-                                    ...formData,
-                                    ticketTypes: updatedTickets
-                                  })
+                                  setTempTicketTypes(updatedTickets)
                                 }}
                                 placeholder="0"
                                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Max Per User</label>
+                              <input
+                                type="number"
+                                value={ticket.maxPerUser}
+                                onChange={(e) => {
+                                  const updatedTickets = [...tempTicketTypes]
+                                  updatedTickets[index] = {
+                                    ...updatedTickets[index],
+                                    maxPerUser: parseInt(e.target.value) || 1
+                                  }
+                                  setTempTicketTypes(updatedTickets)
+                                }}
+                                placeholder="1"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Early Bird Settings */}
+                          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                            <h6 className="font-medium text-blue-900 mb-3">Early Bird Settings</h6>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Early Bird Deadline</label>
+                                <input
+                                  type="datetime-local"
+                                  value={ticket.earlyBirdDeadline}
+                                  onChange={(e) => {
+                                    const updatedTickets = [...tempTicketTypes]
+                                    updatedTickets[index] = {
+                                      ...updatedTickets[index],
+                                      earlyBirdDeadline: e.target.value
+                                    }
+                                    setTempTicketTypes(updatedTickets)
+                                  }}
+                                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Discount Rate (%)</label>
+                                <input
+                                  type="number"
+                                  value={Math.round(ticket.discountRate * 100)}
+                                  onChange={(e) => {
+                                    const updatedTickets = [...tempTicketTypes]
+                                    updatedTickets[index] = {
+                                      ...updatedTickets[index],
+                                      discountRate: (parseInt(e.target.value) || 0) / 100
+                                    }
+                                    setTempTicketTypes(updatedTickets)
+                                  }}
+                                  placeholder="15"
+                                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1052,25 +1290,25 @@ export default function EventManagementPage() {
                 </div>
 
                 {/* Summary Section */}
-                {formData.ticketTypes.length > 0 && (
+                {tempTicketTypes.length > 0 && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h5 className="font-medium text-blue-900 mb-2">📊 Ticket Summary</h5>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-blue-700 font-medium">Total Ticket Types:</span>
-                        <span className="ml-2 text-blue-900">{formData.ticketTypes.length}</span>
+                        <span className="ml-2 text-blue-900">{tempTicketTypes.length}</span>
                       </div>
                       <div>
                         <span className="text-blue-700 font-medium">Total Capacity:</span>
                         <span className="ml-2 text-blue-900">
-                          {formData.ticketTypes.reduce((total, ticket) => total + ticket.totalQuantity, 0)}
+                          {tempTicketTypes.reduce((total, ticket) => total + ticket.totalQuantity, 0)}
                         </span>
                       </div>
                       <div>
                         <span className="text-blue-700 font-medium">Price Range:</span>
                         <span className="ml-2 text-blue-900">
-                          {formData.ticketTypes.length > 0 ? 
-                            `${Math.min(...formData.ticketTypes.map(t => t.price)).toLocaleString('en-US')} - ${Math.max(...formData.ticketTypes.map(t => t.price)).toLocaleString('en-US')} VND` : 
+                          {tempTicketTypes.length > 0 ? 
+                            `${Math.min(...tempTicketTypes.map(t => t.price)).toLocaleString('en-US')} - ${Math.max(...tempTicketTypes.map(t => t.price)).toLocaleString('en-US')} VND` : 
                             "Not set"
                           }
                         </span>
@@ -1119,7 +1357,6 @@ export default function EventManagementPage() {
                         onClick={() => {
                           const newAddOn = {
                             name: "",
-                            description: "",
                             price: 0
                           }
                           setFormData({
@@ -1174,26 +1411,6 @@ export default function EventManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                              <input
-                                type="text"
-                                value={addon.description}
-                                onChange={(e) => {
-                                  const updatedAddOns = [...formData.addOns]
-                                  updatedAddOns[index] = {
-                                    ...updatedAddOns[index],
-                                    description: e.target.value
-                                  }
-                                  setFormData({
-                                    ...formData,
-                                    addOns: updatedAddOns
-                                  })
-                                }}
-                                placeholder="Brief description of the add-on"
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Price (VND)</label>
                               <input
                                 type="number"
@@ -1213,6 +1430,7 @@ export default function EventManagementPage() {
                                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
+
                           </div>
                         </div>
                       ))}
@@ -1258,9 +1476,7 @@ export default function EventManagementPage() {
                       onClick={() => {
                         const newLocation = {
                           name: "",
-                          address: "",
-                          description: "",
-                          mapUrl: ""
+                          address: ""
                         }
                         setFormData({
                           ...formData,
@@ -1283,9 +1499,7 @@ export default function EventManagementPage() {
                         onClick={() => {
                           const newLocation = {
                             name: "",
-                            address: "",
-                            description: "",
-                            mapUrl: ""
+                            address: ""
                           }
                           setFormData({
                             ...formData,
@@ -1358,46 +1572,6 @@ export default function EventManagementPage() {
                                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                              <input
-                                type="text"
-                                value={location.description || ""}
-                                onChange={(e) => {
-                                  const updatedLocations = [...formData.locations]
-                                  updatedLocations[index] = {
-                                    ...updatedLocations[index],
-                                    description: e.target.value
-                                  }
-                                  setFormData({
-                                    ...formData,
-                                    locations: updatedLocations
-                                  })
-                                }}
-                                placeholder="Additional venue details"
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Map URL (Optional)</label>
-                              <input
-                                type="url"
-                                value={location.mapUrl || ""}
-                                onChange={(e) => {
-                                  const updatedLocations = [...formData.locations]
-                                  updatedLocations[index] = {
-                                    ...updatedLocations[index],
-                                    mapUrl: e.target.value
-                                  }
-                                  setFormData({
-                                    ...formData,
-                                    locations: updatedLocations
-                                  })
-                                }}
-                                placeholder="Google Maps or other map link"
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
                           </div>
                         </div>
                       ))}
@@ -1423,10 +1597,7 @@ export default function EventManagementPage() {
                           <span className="text-gray-600">Title:</span>
                           <span className="ml-2 font-medium">{formData.title || "Not set"}</span>
                         </div>
-                        <div>
-                          <span className="text-gray-600">Code:</span>
-                          <span className="ml-2 font-medium">{formData.code || "Not set"}</span>
-                        </div>
+
                         <div>
                           <span className="text-gray-600">Category:</span>
                           <span className="ml-2 font-medium">
@@ -1447,25 +1618,27 @@ export default function EventManagementPage() {
                     </div>
 
                     {/* Schedule */}
-                    {formData.schedules.length > 0 && (
+                    {formData.scheduleMasters.length > 0 && (
                       <div className="mb-6 p-4 bg-blue-50 rounded-lg">
                         <h5 className="font-medium text-gray-900 mb-3">📅 Schedule</h5>
-                        {formData.schedules.map((schedule, index) => (
+                        {formData.scheduleMasters.map((schedule, index) => (
                           <div key={index} className="text-sm">
                             <div><span className="text-gray-600">Start:</span> <span className="ml-2 font-medium">{new Date(schedule.startDate).toLocaleString()}</span></div>
-                            <div><span className="text-gray-600">End:</span> <span className="ml-2 font-medium">{new Date(schedule.endDate).toLocaleString()}</span></div>
-                            <div><span className="text-gray-600">Repeat:</span> <span className="ml-2 font-medium">{schedule.repeatPattern}</span></div>
+                            <div><span className="text-gray-600">End:</span> <span className="ml-2 font-medium">{new Date(schedule.recurrenceEndDate).toLocaleString()}</span></div>
+                            <div><span className="text-gray-600">Duration:</span> <span className="ml-2 font-medium">{schedule.duration}</span></div>
+                            <div><span className="text-gray-600">Recurrence:</span> <span className="ml-2 font-medium">{schedule.recurrenceType === 2 ? "Weekly" : "One-time"}</span></div>
+                            <div><span className="text-gray-600">Repeat Count:</span> <span className="ml-2 font-medium">{schedule.repeatCount}</span></div>
                           </div>
                         ))}
                       </div>
                     )}
 
                     {/* Ticket Types */}
-                    {formData.ticketTypes.length > 0 && (
+                    {tempTicketTypes.length > 0 && (
                       <div className="mb-6 p-4 bg-green-50 rounded-lg">
                         <h5 className="font-medium text-gray-900 mb-3">🎫 Ticket Types</h5>
                         <div className="space-y-2">
-                          {formData.ticketTypes.map((ticket, index) => (
+                          {tempTicketTypes.map((ticket, index) => (
                             <div key={index} className="text-sm flex justify-between items-center">
                               <span className="font-medium">{ticket.name || `Ticket ${index + 1}`}</span>
                               <span>{ticket.price.toLocaleString('en-US')} VND ({ticket.totalQuantity} available)</span>
@@ -1486,7 +1659,7 @@ export default function EventManagementPage() {
                                 <span className="font-medium">{addon.name || `Add-on ${index + 1}`}</span>
                                 <span>{addon.price.toLocaleString('en-US')} VND</span>
                               </div>
-                              {addon.description && <div className="text-gray-600 text-xs mt-1">{addon.description}</div>}
+
                             </div>
                           ))}
                         </div>
@@ -1502,7 +1675,7 @@ export default function EventManagementPage() {
                             <div key={index} className="text-sm">
                               <div className="font-medium">{location.name || `Location ${index + 1}`}</div>
                               <div className="text-gray-600">{location.address}</div>
-                              {location.description && <div className="text-gray-500 text-xs mt-1">{location.description}</div>}
+
                             </div>
                           ))}
                         </div>
@@ -1512,23 +1685,60 @@ export default function EventManagementPage() {
 
                   {/* Submit Button */}
                   <div className="flex justify-center">
-                    <button 
-                      onClick={() => createPendingEvent(formData)}
-                      disabled={isSubmitting}
-                      className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {isSubmitting ? (
-                        <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                          Submitting for Review...
-                        </div>
-                      ) : (
-                        <>
-                          <Send className="h-5 w-5 mr-2" />
-                          Submit Event for Review
-                        </>
-                      )}
-                    </button>
+                                      <button 
+                    onClick={() => {
+                      // Prepare the final data for submission
+                      const finalData: PendingEventRequest = {
+                        ...formData,
+                        scheduleMasters: formData.scheduleMasters.map(schedule => ({
+                          ...schedule,
+                          ticketTypes: tempTicketTypes || []
+                        }))
+                      }
+                      
+                      // Validate required fields before submission
+                      if (!finalData.title || !finalData.title.trim()) {
+                        Notify.failure("Title is required")
+                        return
+                      }
+                      if (!finalData.description || !finalData.description.trim()) {
+                        Notify.failure("Description is required")
+                        return
+                      }
+                      if (!finalData.notes || !finalData.notes.trim()) {
+                        Notify.failure("Notes is required")
+                        return
+                      }
+                      if (!finalData.categoryId || finalData.categoryId < 1) {
+                        Notify.failure("Please select a valid category")
+                        return
+                      }
+                      if (!finalData.levelId || finalData.levelId < 1) {
+                        Notify.failure("Please select a valid level")
+                        return
+                      }
+                      if (!finalData.scheduleMasters || finalData.scheduleMasters.length === 0) {
+                        Notify.failure("At least one schedule is required")
+                        return
+                      }
+                      
+                      createPendingEvent(finalData)
+                    }}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                        Submitting for Review...
+                      </div>
+                    ) : (
+                      <>
+                        <Send className="h-5 w-5 mr-2" />
+                        Submit Event for Review
+                      </>
+                    )}
+                  </button>
                   </div>
                 </div>
               </div>
@@ -1559,7 +1769,44 @@ export default function EventManagementPage() {
                   </button>
                 ) : (
                   <button 
-                    onClick={() => createPendingEvent(formData)}
+                    onClick={() => {
+                      // Prepare the final data for submission
+                      const finalData: PendingEventRequest = {
+                        ...formData,
+                        scheduleMasters: formData.scheduleMasters.map(schedule => ({
+                          ...schedule,
+                          ticketTypes: tempTicketTypes || []
+                        }))
+                      }
+                      
+                      // Validate required fields before submission
+                      if (!finalData.title || !finalData.title.trim()) {
+                        Notify.failure("Title is required")
+                        return
+                      }
+                      if (!finalData.description || !finalData.description.trim()) {
+                        Notify.failure("Description is required")
+                        return
+                      }
+                      if (!finalData.notes || !finalData.notes.trim()) {
+                        Notify.failure("Notes is required")
+                        return
+                      }
+                      if (!finalData.categoryId || finalData.categoryId < 1) {
+                        Notify.failure("Please select a valid category")
+                        return
+                      }
+                      if (!finalData.levelId || finalData.levelId < 1) {
+                        Notify.failure("Please select a valid level")
+                        return
+                      }
+                      if (!finalData.scheduleMasters || finalData.scheduleMasters.length === 0) {
+                        Notify.failure("At least one schedule is required")
+                        return
+                      }
+                      
+                      createPendingEvent(finalData)
+                    }}
                     disabled={isSubmitting}
                     className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
                   >
@@ -1628,15 +1875,14 @@ export default function EventManagementPage() {
                   {selectedEvent.schedules.map((schedule, index) => (
                     <div key={schedule.id} className="mb-3 p-3 bg-gray-50 rounded">
                       <div className="text-sm">
-                        <div><strong>Start:</strong> {formatDate(schedule.startDate)} at {formatTime(schedule.startDate)}</div>
-                        <div><strong>End:</strong> {formatDate(schedule.endDate)} at {formatTime(schedule.endDate)}</div>
-                        {schedule.repeatPattern && <div><strong>Repeat:</strong> {schedule.repeatPattern}</div>}
+                        <div><strong>Start:</strong> {formatDate(schedule.startTime)} at {formatTime(schedule.startTime)}</div>
+                        <div><strong>End:</strong> {formatDate(schedule.endTime)} at {formatTime(schedule.endTime)}</div>
                       </div>
                     </div>
                   ))}
 
                   <h4 className="font-medium text-gray-900 mb-3 mt-4">Ticket Types</h4>
-                  {selectedEvent.ticketTypes.map((ticket, index) => (
+                  {selectedEvent.schedules.length > 0 && selectedEvent.schedules[0].ticketTypes.map((ticket, index) => (
                     <div key={ticket.id} className="mb-2 p-2 bg-blue-50 rounded">
                       <div className="text-sm">
                         <div><strong>{ticket.name}</strong></div>

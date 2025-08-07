@@ -19,7 +19,7 @@ export function setupAxios(axios: AxiosInstance) {
 
   axios.interceptors.response.use(
     (response: AxiosResponse) => {
-      return response?.data ? Promise.resolve(response.data) : Promise.resolve(response);
+      return Promise.resolve(response);
     },
     async (error: AxiosError<any>) => {
       const originalRequest: any = error.config;
