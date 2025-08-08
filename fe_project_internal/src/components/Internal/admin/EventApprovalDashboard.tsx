@@ -28,17 +28,56 @@ interface PendingEvent {
   code: string
   title: string
   description: string
-  categoryId: number
-  levelId: number
   notes: string | null
+  categoryId: number
+  categoryName: string
+  levelId: number
+  levelName: string
   status: number // 0 = pending, 1 = approved
-  rejectReason: string | null
-  reviewedBy: string | null
-  reviewedAt: string | null
-  schedules: any[]
-  ticketTypes: any[]
-  addOns: any[]
-  locations: any[]
+  statusText: string
+  scheduleMasters: ScheduleMaster[]
+  addOns: AddOn[]
+  locations: Location[]
+}
+
+interface ScheduleMaster {
+  id: string
+  startDate: string
+  recurrenceEndDate: string
+  duration: string
+  recurrenceType: number
+  repeatCount: number
+  schedules: Schedule[]
+}
+
+interface Schedule {
+  id: string
+  startTime: string
+  endTime: string
+  ticketTypes: TicketType[]
+}
+
+interface TicketType {
+  id: string
+  name: string
+  price: number
+  totalQuantity: number
+  maxPerUser: number
+  isEarlyBird: boolean
+  earlyBirdDeadline: string
+  discountRate: number
+}
+
+interface AddOn {
+  id: string
+  name: string
+  price: number
+}
+
+interface Location {
+  id: string
+  name: string
+  address: string
 }
 
 interface EventApprovalStats {
@@ -103,6 +142,7 @@ const mockUser: User = {
 export default function EventApprovalDashboard() {
   const [events, setEvents] = useState<PendingEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [approving, setApproving] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<PendingEvent | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
@@ -119,8 +159,8 @@ export default function EventApprovalDashboard() {
       setLoading(true)
       const response = await api.get('/api/PendingEvent')
       
-      if (response.data && Array.isArray(response.data)) {
-        setEvents(response.data)
+      if (response.data && response.data.success && Array.isArray(response.data.data)) {
+        setEvents(response.data.data)
       } else {
         setEvents([])
       }
@@ -142,7 +182,18 @@ export default function EventApprovalDashboard() {
     totalPending: events.filter(e => e.status === 0).length,
     totalApproved: events.filter(e => e.status === 1).length,
     totalRejected: 0, // API doesn't have rejected status yet
-    totalRevenue: 0 // API doesn't have revenue data yet
+    totalRevenue: events.reduce((total, event) => {
+      // Calculate revenue from all ticket types across all schedule masters
+      let eventRevenue = 0
+      event.scheduleMasters.forEach(scheduleMaster => {
+        scheduleMaster.schedules.forEach(schedule => {
+          schedule.ticketTypes.forEach(ticketType => {
+            eventRevenue += ticketType.price * ticketType.totalQuantity
+          })
+        })
+      })
+      return total + eventRevenue
+    }, 0)
   }
 
   const handleViewDetails = (event: PendingEvent) => {
@@ -167,26 +218,19 @@ export default function EventApprovalDashboard() {
     if (!selectedEvent) return
 
     try {
+      setApproving(true)
       if (approvalAction === "approve") {
         // Call the approve API
-        await api.post(`/api/PendingEvent/${selectedEvent.id}/approve`)
+        const response = await api.post(`/api/PendingEventApproval/${selectedEvent.id}/approve`)
         
-        // Update local state to reflect the change
-        const updatedEvents = events.map(event => {
-          if (event.id === selectedEvent.id) {
-            return {
-              ...event,
-              status: 1,
-              reviewedBy: "current-user-id", // Replace with actual user ID
-              reviewedAt: new Date().toISOString(),
-              rejectReason: null
-            }
-          }
-          return event
-        })
-
-        setEvents(updatedEvents)
-        setToast("Event approved successfully!")
+        // Check if the response is successful
+        if (response.data && response.data.success) {
+          // Refresh the events list to get the latest data
+          await fetchEvents()
+          setToast(response.data.message || "Event approved successfully!")
+        } else {
+          throw new Error(response.data?.message || "Failed to approve event")
+        }
       } else {
         // For reject, we'll keep the local state update for now
         // You can add reject API call here when available
@@ -195,7 +239,7 @@ export default function EventApprovalDashboard() {
             return {
               ...event,
               status: 0, // Keep as pending for now
-              rejectReason: rejectionReason
+              statusText: "Pending"
             }
           }
           return event
@@ -210,10 +254,13 @@ export default function EventApprovalDashboard() {
       setApprovalAction(null)
       setRejectionReason("")
       setTimeout(() => setToast(""), 3000)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating event:', error)
-      setToast("Error updating event. Please try again.")
+      const errorMessage = error.response?.data?.message || error.message || "Error updating event. Please try again."
+      setToast(errorMessage)
       setTimeout(() => setToast(""), 3000)
+    } finally {
+      setApproving(false)
     }
   }
 
@@ -286,15 +333,13 @@ export default function EventApprovalDashboard() {
     { key: "categoryName", label: "Category", sortable: true },
     { key: "levelName", label: "Level", sortable: true },
     { key: "status", label: "Status" },
-    { key: "reviewedAt", label: "Reviewed Date" },
   ]
 
   const eventRows = events.map(event => {
     return {
       ...event,
-      categoryName: mockCategories[event.categoryId as keyof typeof mockCategories] || "Unknown",
-      levelName: mockLevels[event.levelId as keyof typeof mockLevels] || "Unknown",
-      reviewedAt: formatDate(event.reviewedAt),
+      categoryName: event.categoryName || mockCategories[event.categoryId as keyof typeof mockCategories] || "Unknown",
+      levelName: event.levelName || mockLevels[event.levelId as keyof typeof mockLevels] || "Unknown",
       status: getStatusBadge(event.status)
     }
   })
@@ -405,9 +450,9 @@ export default function EventApprovalDashboard() {
                     <div className="space-y-2 text-sm">
                       <div><span className="font-medium">Event Code:</span> {selectedEvent.code}</div>
                       <div><span className="font-medium">Title:</span> {selectedEvent.title}</div>
-                      <div><span className="font-medium">Category:</span> {mockCategories[selectedEvent.categoryId as keyof typeof mockCategories] || "Unknown"}</div>
-                      <div><span className="font-medium">Level:</span> {mockLevels[selectedEvent.levelId as keyof typeof mockLevels] || "Unknown"}</div>
-                      <div><span className="font-medium">Status:</span> {selectedEvent.status === 0 ? "Pending" : "Approved"}</div>
+                      <div><span className="font-medium">Category:</span> {selectedEvent.categoryName}</div>
+                      <div><span className="font-medium">Level:</span> {selectedEvent.levelName}</div>
+                      <div><span className="font-medium">Status:</span> {selectedEvent.statusText}</div>
                       {selectedEvent.notes && (
                         <div><span className="font-medium">Notes:</span> {selectedEvent.notes}</div>
                       )}
@@ -416,11 +461,8 @@ export default function EventApprovalDashboard() {
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">Review Information</h4>
                     <div className="space-y-2 text-sm">
-                      <div><span className="font-medium">Reviewed By:</span> {selectedEvent.reviewedBy || "Not reviewed"}</div>
-                      <div><span className="font-medium">Reviewed Date:</span> {formatDate(selectedEvent.reviewedAt)}</div>
-                      {selectedEvent.rejectReason && (
-                        <div><span className="font-medium">Rejection Reason:</span> {selectedEvent.rejectReason}</div>
-                      )}
+                      <div><span className="font-medium">Status:</span> {selectedEvent.statusText}</div>
+                      <div><span className="font-medium">Event ID:</span> {selectedEvent.id}</div>
                     </div>
                   </div>
                 </div>
@@ -434,32 +476,66 @@ export default function EventApprovalDashboard() {
                 {/* Schedules */}
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Event Schedule</h4>
-                  {selectedEvent.schedules.length > 0 ? (
+                  {selectedEvent.scheduleMasters.length > 0 ? (
                     <div className="space-y-2">
-                      {selectedEvent.schedules.map((schedule, index) => (
-                        <div key={index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          <div className="text-sm">
-                            <div>Schedule {index + 1}</div>
-                          </div>
+                      {selectedEvent.scheduleMasters.map((scheduleMaster, index) => (
+                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                          <div className="font-medium">Schedule Master {index + 1}</div>
+                          {scheduleMaster.schedules.length > 0 ? (
+                            <div className="space-y-2 mt-2">
+                              {scheduleMaster.schedules.map((schedule, sIndex) => (
+                                <div key={sIndex} className="flex items-center gap-4 p-3 bg-gray-100 rounded-lg">
+                                  <Clock className="h-4 w-4 text-gray-500" />
+                                  <div className="text-sm">
+                                    <div>Schedule {sIndex + 1}</div>
+                                    <div>Start: {formatTime(schedule.startTime)}</div>
+                                    <div>End: {formatTime(schedule.endTime)}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 text-sm">No schedules defined for this master</p>
+                          )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-sm">No schedules defined</p>
+                    <p className="text-gray-500 text-sm">No schedule masters defined</p>
                   )}
                 </div>
 
                 {/* Ticket Types */}
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Ticket Types</h4>
-                  {selectedEvent.ticketTypes.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedEvent.ticketTypes.map((ticket, index) => (
-                        <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <div className="font-medium">Ticket {index + 1}</div>
-                          </div>
+                  {selectedEvent.scheduleMasters.length > 0 ? (
+                    <div className="space-y-4">
+                      {selectedEvent.scheduleMasters.map((scheduleMaster, masterIndex) => (
+                        <div key={masterIndex} className="space-y-2">
+                          <h5 className="font-medium text-gray-700">Schedule Master {masterIndex + 1}</h5>
+                          {scheduleMaster.schedules.length > 0 ? (
+                            scheduleMaster.schedules.map((schedule, scheduleIndex) => (
+                              <div key={scheduleIndex} className="ml-4 space-y-2">
+                                <h6 className="font-medium text-gray-600">Schedule {scheduleIndex + 1}</h6>
+                                {schedule.ticketTypes.map((ticket, ticketIndex) => (
+                                  <div key={ticketIndex} className="ml-4 p-3 bg-gray-50 rounded-lg">
+                                    <div className="font-medium">{ticket.name}</div>
+                                    <div className="text-sm text-gray-600">
+                                      <div>Price: ${ticket.price.toLocaleString()}</div>
+                                      <div>Quantity: {ticket.totalQuantity}</div>
+                                      <div>Max per user: {ticket.maxPerUser}</div>
+                                      {ticket.isEarlyBird && (
+                                        <div>Early bird: Yes (Deadline: {formatDate(ticket.earlyBirdDeadline)})</div>
+                                      )}
+                                      <div>Discount rate: {(ticket.discountRate * 100).toFixed(0)}%</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-gray-500 text-sm ml-4">No schedules defined for this master</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -477,6 +553,8 @@ export default function EventApprovalDashboard() {
                         <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                           <div>
                             <div className="font-medium">Add-on {index + 1}</div>
+                            <div>Name: {addon.name}</div>
+                            <div>Price: ${addon.price.toLocaleString()}</div>
                           </div>
                         </div>
                       ))}
@@ -494,6 +572,8 @@ export default function EventApprovalDashboard() {
                       {selectedEvent.locations.map((location, index) => (
                         <div key={index} className="p-3 bg-gray-50 rounded-lg">
                           <div className="font-medium">Location {index + 1}</div>
+                          <div>Name: {location.name}</div>
+                          <div>Address: {location.address}</div>
                         </div>
                       ))}
                     </div>
@@ -581,20 +661,35 @@ export default function EventApprovalDashboard() {
                     type="button" 
                     className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 hover:bg-gray-200 font-medium transition-all duration-200" 
                     onClick={() => setShowApprovalModal(false)}
+                    disabled={approving}
                   >
                     Cancel
                   </button>
                   <button 
                     type="button" 
-                    className={`flex-1 text-white rounded-lg px-4 py-3 font-medium transition-all duration-200 shadow-md ${
+                    className={`flex-1 text-white rounded-lg px-4 py-3 font-medium transition-all duration-200 shadow-md flex items-center justify-center gap-2 ${
                       approvalAction === "approve" 
                         ? "bg-green-600 hover:bg-green-700" 
                         : "bg-red-600 hover:bg-red-700"
-                    }`}
+                    } ${approving ? "opacity-50 cursor-not-allowed" : ""}`}
                     onClick={handleApprovalSubmit}
-                    disabled={approvalAction === "reject" && !rejectionReason.trim()}
+                    disabled={(approvalAction === "reject" && !rejectionReason.trim()) || approving}
                   >
-                    {approvalAction === "approve" ? "Approve Event" : "Reject Event"}
+                    {approving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        {approvalAction === "approve" ? "Approving..." : "Rejecting..."}
+                      </>
+                    ) : (
+                      <>
+                        {approvalAction === "approve" ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
+                        {approvalAction === "approve" ? "Approve Event" : "Reject Event"}
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
