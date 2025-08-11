@@ -56,6 +56,8 @@ interface ScheduleTicketType {
   name: string
   price: number
   totalQuantity: number
+  discountRateEarlyBird: number
+  discountRateCombo: number | null
 }
 
 interface TicketType {
@@ -85,6 +87,10 @@ interface Event {
   code: string
   title: string
   description: string
+  notes: string | null
+  agenda: string | null
+  instructorName: string
+  phoneNumber: string
   categoryId: number
   categoryName: string
   levelId: number
@@ -100,6 +106,9 @@ interface PendingEventRequest {
   title: string
   description: string
   notes: string // Changed from optional to required
+  agenda: string
+  instructorName: string
+  phoneNumber: string
   categoryId: number
   levelId: number
   scheduleMasters: ScheduleMaster[]
@@ -129,7 +138,8 @@ interface ScheduleMasterTicketType {
   maxPerUser: number
   isEarlyBird: boolean
   earlyBirdDeadline: string
-  discountRate: number // 1 for 100% discount as per new API example
+  discountRateEarlyBird: number
+  discountRateCombo: number | null
 }
 
 const mockUser: User = {
@@ -183,6 +193,9 @@ export default function EventManagementPage() {
     title: "",
     description: "",
     notes: "", // Changed back to empty string to allow user input
+    agenda: "",
+    instructorName: "",
+    phoneNumber: "",
     categoryId: 0,
     levelId: 0,
     scheduleMasters: [],
@@ -351,6 +364,18 @@ export default function EventManagementPage() {
         Notify.failure("Notes is required")
         return
       }
+      if (!eventData.agenda || !eventData.agenda.trim()) {
+        Notify.failure("Agenda is required")
+        return
+      }
+      if (!eventData.instructorName || !eventData.instructorName.trim()) {
+        Notify.failure("Instructor name is required")
+        return
+      }
+      if (!eventData.phoneNumber || !eventData.phoneNumber.trim()) {
+        Notify.failure("Phone number is required")
+        return
+      }
       if (!eventData.categoryId || eventData.categoryId < 1) {
         Notify.failure("Please select a valid category")
         return
@@ -377,6 +402,9 @@ export default function EventManagementPage() {
         title: eventData.title.trim(),
         description: eventData.description.trim(),
         notes: eventData.notes.trim(),
+        agenda: eventData.agenda.trim(),
+        instructorName: eventData.instructorName.trim(),
+        phoneNumber: eventData.phoneNumber.trim(),
         categoryId: parseInt(eventData.categoryId.toString()),
         levelId: parseInt(eventData.levelId.toString()),
         scheduleMasters: eventData.scheduleMasters.map(schedule => ({
@@ -390,9 +418,10 @@ export default function EventManagementPage() {
             price: parseInt(ticket.price.toString()) || 0,
             totalQuantity: parseInt(ticket.totalQuantity.toString()) || 0,
             maxPerUser: parseInt(ticket.maxPerUser.toString()) || 1,
-            isEarlyBird: ticket.isEarlyBird !== undefined ? ticket.isEarlyBird : true,
-            earlyBirdDeadline: ticket.earlyBirdDeadline || new Date().toISOString(),
-            discountRate: parseFloat(ticket.discountRate.toString()) || 0.15
+            isEarlyBird: ticket.isEarlyBird !== undefined ? ticket.isEarlyBird : false,
+            earlyBirdDeadline: ticket.isEarlyBird ? (ticket.earlyBirdDeadline || new Date().toISOString()) : "",
+            discountRateEarlyBird: ticket.isEarlyBird ? (parseFloat(ticket.discountRateEarlyBird.toString()) || 0.15) : 0,
+            discountRateCombo: ticket.discountRateCombo
           })) : []
         })),
         addOns: eventData.addOns ? eventData.addOns.map(addon => ({
@@ -414,6 +443,9 @@ export default function EventManagementPage() {
         title: "",
         description: "",
         notes: "",
+        agenda: "",
+        instructorName: "",
+        phoneNumber: "",
         categoryId: 0,
         levelId: 0,
         scheduleMasters: [],
@@ -969,6 +1001,36 @@ export default function EventManagementPage() {
                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Agenda</label>
+                      <textarea
+                        rows={4}
+                        value={formData.agenda}
+                        onChange={(e) => setFormData({...formData, agenda: e.target.value})}
+                        placeholder="Enter detailed agenda, schedule, or program outline..."
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Instructor Name</label>
+                      <input
+                        type="text"
+                        value={formData.instructorName}
+                        onChange={(e) => setFormData({...formData, instructorName: e.target.value})}
+                        placeholder="Enter instructor or facilitator name"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                      <input
+                        type="tel"
+                        value={formData.phoneNumber}
+                        onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
+                        placeholder="Enter contact phone number"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-4">
                     <div>
@@ -1120,9 +1182,10 @@ export default function EventManagementPage() {
                           price: 0,
                           totalQuantity: 0,
                           maxPerUser: 1,
-                          isEarlyBird: true,
+                          isEarlyBird: false,
                           earlyBirdDeadline: "",
-                          discountRate: 0.15
+                          discountRateEarlyBird: 0,
+                          discountRateCombo: null
                         }
                         setTempTicketTypes([...tempTicketTypes, newTicketType])
                       }}
@@ -1140,15 +1203,16 @@ export default function EventManagementPage() {
                       <p className="text-sm mb-4">Start by adding your first ticket type to define pricing and capacity</p>
                       <button
                         onClick={() => {
-                          const newTicketType: ScheduleMasterTicketType = {
-                            name: "",
-                            price: 0,
-                            totalQuantity: 0,
-                            maxPerUser: 1,
-                            isEarlyBird: true,
-                            earlyBirdDeadline: "",
-                            discountRate: 0.15
-                          }
+                                                  const newTicketType: ScheduleMasterTicketType = {
+                          name: "",
+                          price: 0,
+                          totalQuantity: 0,
+                          maxPerUser: 1,
+                          isEarlyBird: false,
+                          earlyBirdDeadline: "",
+                          discountRateEarlyBird: 0,
+                          discountRateCombo: null
+                        }
                           setTempTicketTypes([...tempTicketTypes, newTicketType])
                         }}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
@@ -1244,44 +1308,115 @@ export default function EventManagementPage() {
                             </div>
                           </div>
                           
-                          {/* Early Bird Settings */}
+                          {/* Discount Settings */}
                           <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                            <h6 className="font-medium text-blue-900 mb-3">Early Bird Settings</h6>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Early Bird Deadline</label>
+                            <h6 className="font-medium text-blue-900 mb-3">Discount Settings</h6>
+                            
+                            {/* Discount Type Selection */}
+                            <div className="mb-4 space-y-3">
+                              <div className="flex items-center space-x-3">
                                 <input
-                                  type="datetime-local"
-                                  value={ticket.earlyBirdDeadline}
+                                  type="checkbox"
+                                  id={`earlyBird-${index}`}
+                                  checked={ticket.isEarlyBird}
                                   onChange={(e) => {
                                     const updatedTickets = [...tempTicketTypes]
                                     updatedTickets[index] = {
                                       ...updatedTickets[index],
-                                      earlyBirdDeadline: e.target.value
+                                      isEarlyBird: e.target.checked,
+                                      discountRateEarlyBird: e.target.checked ? 0.15 : 0,
+                                      earlyBirdDeadline: e.target.checked ? new Date().toISOString().slice(0, 16) : ""
                                     }
                                     setTempTicketTypes(updatedTickets)
                                   }}
-                                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                 />
+                                <label htmlFor={`earlyBird-${index}`} className="text-sm font-medium text-gray-700">
+                                  Enable Early Bird Discount
+                                </label>
                               </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Discount Rate (%)</label>
+                              
+                              <div className="flex items-center space-x-3">
                                 <input
-                                  type="number"
-                                  value={Math.round(ticket.discountRate * 100)}
+                                  type="checkbox"
+                                  id={`comboDiscount-${index}`}
+                                  checked={ticket.discountRateCombo !== null}
                                   onChange={(e) => {
                                     const updatedTickets = [...tempTicketTypes]
                                     updatedTickets[index] = {
                                       ...updatedTickets[index],
-                                      discountRate: (parseInt(e.target.value) || 0) / 100
+                                      discountRateCombo: e.target.checked ? 0.20 : null
                                     }
                                     setTempTicketTypes(updatedTickets)
                                   }}
-                                  placeholder="15"
-                                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                 />
+                                <label htmlFor={`comboDiscount-${index}`} className="text-sm font-medium text-gray-700">
+                                  Enable Combo Discount
+                                </label>
                               </div>
                             </div>
+                            
+                            {/* Early Bird Settings - Only show when enabled */}
+                            {ticket.isEarlyBird && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Early Bird Deadline</label>
+                                  <input
+                                    type="datetime-local"
+                                    value={ticket.earlyBirdDeadline}
+                                    onChange={(e) => {
+                                      const updatedTickets = [...tempTicketTypes]
+                                      updatedTickets[index] = {
+                                        ...updatedTickets[index],
+                                        earlyBirdDeadline: e.target.value
+                                      }
+                                      setTempTicketTypes(updatedTickets)
+                                    }}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Early Bird Discount (%)</label>
+                                  <input
+                                    type="number"
+                                    value={Math.round(ticket.discountRateEarlyBird * 100)}
+                                    onChange={(e) => {
+                                      const updatedTickets = [...tempTicketTypes]
+                                      updatedTickets[index] = {
+                                        ...updatedTickets[index],
+                                        discountRateEarlyBird: (parseInt(e.target.value) || 0) / 100
+                                      }
+                                      setTempTicketTypes(updatedTickets)
+                                    }}
+                                    placeholder="15"
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Combo Discount Settings - Only show when enabled */}
+                            {ticket.discountRateCombo !== null && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Combo Discount (%)</label>
+                                <input
+                                  type="number"
+                                  value={Math.round(ticket.discountRateCombo * 100)}
+                                  onChange={(e) => {
+                                    const updatedTickets = [...tempTicketTypes]
+                                    updatedTickets[index] = {
+                                      ...updatedTickets[index],
+                                      discountRateCombo: (parseInt(e.target.value) || 0) / 100
+                                    }
+                                    setTempTicketTypes(updatedTickets)
+                                  }}
+                                  placeholder="20"
+                                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Discount applied when purchasing multiple tickets</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1597,7 +1732,6 @@ export default function EventManagementPage() {
                           <span className="text-gray-600">Title:</span>
                           <span className="ml-2 font-medium">{formData.title || "Not set"}</span>
                         </div>
-
                         <div>
                           <span className="text-gray-600">Category:</span>
                           <span className="ml-2 font-medium">
@@ -1610,9 +1744,25 @@ export default function EventManagementPage() {
                             {levels.find(l => l.id === formData.levelId)?.name || "Not selected"}
                           </span>
                         </div>
+                        <div>
+                          <span className="text-gray-600">Instructor:</span>
+                          <span className="ml-2 font-medium">{formData.instructorName || "Not provided"}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Phone:</span>
+                          <span className="ml-2 font-medium">{formData.phoneNumber || "Not provided"}</span>
+                        </div>
                         <div className="md:col-span-2">
                           <span className="text-gray-600">Description:</span>
                           <p className="mt-1 text-gray-800">{formData.description || "Not provided"}</p>
+                        </div>
+                        <div className="md:col-span-2">
+                          <span className="text-gray-600">Notes:</span>
+                          <p className="mt-1 text-gray-800">{formData.notes || "Not provided"}</p>
+                        </div>
+                        <div className="md:col-span-2">
+                          <span className="text-gray-600">Agenda:</span>
+                          <p className="mt-1 text-gray-800">{formData.agenda || "Not provided"}</p>
                         </div>
                       </div>
                     </div>
@@ -1637,11 +1787,19 @@ export default function EventManagementPage() {
                     {tempTicketTypes.length > 0 && (
                       <div className="mb-6 p-4 bg-green-50 rounded-lg">
                         <h5 className="font-medium text-gray-900 mb-3">🎫 Ticket Types</h5>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {tempTicketTypes.map((ticket, index) => (
-                            <div key={index} className="text-sm flex justify-between items-center">
-                              <span className="font-medium">{ticket.name || `Ticket ${index + 1}`}</span>
-                              <span>{ticket.price.toLocaleString('en-US')} VND ({ticket.totalQuantity} available)</span>
+                            <div key={index} className="text-sm border border-green-200 rounded p-3 bg-white">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium">{ticket.name || `Ticket ${index + 1}`}</span>
+                                <span className="font-semibold">{ticket.price.toLocaleString('en-US')} VND</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+                                <div>Quantity: {ticket.totalQuantity} available</div>
+                                <div>Max per user: {ticket.maxPerUser}</div>
+                                <div>Early Bird: {ticket.isEarlyBird ? `${Math.round(ticket.discountRateEarlyBird * 100)}% off` : 'Not enabled'}</div>
+                                <div>Combo: {ticket.discountRateCombo !== null ? `${Math.round(ticket.discountRateCombo * 100)}% off` : 'Not enabled'}</div>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1707,6 +1865,18 @@ export default function EventManagementPage() {
                       }
                       if (!finalData.notes || !finalData.notes.trim()) {
                         Notify.failure("Notes is required")
+                        return
+                      }
+                      if (!finalData.agenda || !finalData.agenda.trim()) {
+                        Notify.failure("Agenda is required")
+                        return
+                      }
+                      if (!finalData.instructorName || !finalData.instructorName.trim()) {
+                        Notify.failure("Instructor name is required")
+                        return
+                      }
+                      if (!finalData.phoneNumber || !finalData.phoneNumber.trim()) {
+                        Notify.failure("Phone number is required")
                         return
                       }
                       if (!finalData.categoryId || finalData.categoryId < 1) {
@@ -1792,6 +1962,18 @@ export default function EventManagementPage() {
                         Notify.failure("Notes is required")
                         return
                       }
+                      if (!finalData.agenda || !finalData.agenda.trim()) {
+                        Notify.failure("Agenda is required")
+                        return
+                      }
+                      if (!finalData.instructorName || !finalData.instructorName.trim()) {
+                        Notify.failure("Instructor name is required")
+                        return
+                      }
+                      if (!finalData.phoneNumber || !finalData.phoneNumber.trim()) {
+                        Notify.failure("Phone number is required")
+                        return
+                      }
                       if (!finalData.categoryId || finalData.categoryId < 1) {
                         Notify.failure("Please select a valid category")
                         return
@@ -1862,12 +2044,38 @@ export default function EventManagementPage() {
                       <span className="ml-2 text-sm text-gray-600">{selectedEvent.levelName}</span>
                     </div>
                     <div>
+                      <span className="text-sm font-medium text-gray-700">Instructor:</span>
+                      <span className="ml-2 text-sm text-gray-600">{selectedEvent.instructorName || "Not provided"}</span>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Phone:</span>
+                      <span className="ml-2 text-sm text-gray-600">{selectedEvent.phoneNumber || "Not provided"}</span>
+                    </div>
+                    <div>
                       <span className="text-sm font-medium text-gray-700">Status:</span>
                       <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(selectedEvent.isPublished).className}`}>
                         {getStatusBadge(selectedEvent.isPublished).text}
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Additional Information */}
+                  {(selectedEvent.notes || selectedEvent.agenda) && (
+                    <div className="mt-4 space-y-3">
+                      {selectedEvent.notes && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Notes:</span>
+                          <p className="mt-1 text-sm text-gray-600">{selectedEvent.notes}</p>
+                        </div>
+                      )}
+                      {selectedEvent.agenda && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Agenda:</span>
+                          <p className="mt-1 text-sm text-gray-600">{selectedEvent.agenda}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <div>
@@ -1888,6 +2096,8 @@ export default function EventManagementPage() {
                         <div><strong>{ticket.name}</strong></div>
                         <div>Price: {ticket.price.toLocaleString('en-US')} VND</div>
                         <div>Quantity: {ticket.totalQuantity}</div>
+                                                             <div>Early Bird: {ticket.discountRateEarlyBird > 0 ? `${Math.round(ticket.discountRateEarlyBird * 100)}% off` : 'Not enabled'}</div>
+                                     <div>Combo: {ticket.discountRateCombo !== null ? `${Math.round(ticket.discountRateCombo * 100)}% off` : 'Not enabled'}</div>
                       </div>
                     </div>
                   ))}
