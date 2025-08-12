@@ -28,7 +28,11 @@ interface PendingEvent {
   code: string
   title: string
   description: string
-  notes: string | null
+  notes: string | null  // JSON string của array requirements
+  agenda: string | null // JSON string của timeline
+  instructorName: string // JSON string của instructor info
+  phoneNumber: string
+  imageUrl: string
   categoryId: number
   categoryName: string
   levelId: number
@@ -65,7 +69,8 @@ interface TicketType {
   maxPerUser: number
   isEarlyBird: boolean
   earlyBirdDeadline: string
-  discountRate: number
+  discountRateEarlyBird: number // Thay đổi tên field theo response mới
+  discountRateCombo: number | null // Thêm field mới
 }
 
 interface AddOn {
@@ -107,6 +112,81 @@ const mockLevels = {
   3: "Advanced",
   4: "Expert",
   5: "All Levels"
+}
+
+// Utility functions để parse JSON strings (tương tự EventManagementPage)
+const parseNotes = (notes: string | null): string[] => {
+  if (!notes) return []
+  try {
+    const parsed = JSON.parse(notes)
+    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+      return parsed
+    }
+  } catch {
+    // Fallback: split by newlines
+    if (notes.trim()) {
+      return notes.split('\n').filter(line => line.trim())
+    }
+  }
+  return []
+}
+
+const parseAgenda = (agenda: string | null): Array<{start: string; end: string; title: string; desc?: string}> => {
+  if (!agenda) return []
+  try {
+    const parsed = JSON.parse(agenda)
+    if (Array.isArray(parsed) && parsed.every(item => 
+      typeof item === 'object' && 
+      typeof item.start === 'string' && 
+      typeof item.end === 'string' && 
+      typeof item.title === 'string'
+    )) {
+      return parsed
+    }
+  } catch {
+    // Fallback: parse by line format "HH:MM-HH:MM | Title | Description"
+    if (agenda.trim()) {
+      return agenda.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const parts = line.split('|').map(part => part.trim())
+          if (parts.length >= 2) {
+            const timeRange = parts[0]
+            const title = parts[1]
+            const desc = parts[2] || ''
+            
+            const timeMatch = timeRange.match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/)
+            if (timeMatch) {
+              return {
+                start: timeMatch[1],
+                end: timeMatch[2],
+                title,
+                desc
+              }
+            }
+          }
+          return null
+        })
+        .filter(item => item !== null) as Array<{start: string; end: string; title: string; desc?: string}>
+    }
+  }
+  return []
+}
+
+const parseInstructor = (instructorName: string | null): {name: string; experience?: string} => {
+  if (!instructorName) return { name: '' }
+  try {
+    const parsed = JSON.parse(instructorName)
+    if (typeof parsed === 'object' && typeof parsed.name === 'string') {
+      return parsed
+    }
+  } catch {
+    // Fallback: treat entire string as name
+    if (instructorName.trim()) {
+      return { name: instructorName.trim() }
+    }
+  }
+  return { name: '' }
 }
 
 function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: React.ReactNode; onClose: () => void }) {
@@ -443,170 +523,245 @@ export default function EventApprovalDashboard() {
           <Modal open={showDetailModal} title="Event Details" onClose={() => setShowDetailModal(false)}>
             {selectedEvent && (
               <div className="space-y-6">
-                {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Basic Information</h4>
-                    <div className="space-y-2 text-sm">
-                      <div><span className="font-medium">Event Code:</span> {selectedEvent.code}</div>
-                      <div><span className="font-medium">Title:</span> {selectedEvent.title}</div>
-                      <div><span className="font-medium">Category:</span> {selectedEvent.categoryName}</div>
-                      <div><span className="font-medium">Level:</span> {selectedEvent.levelName}</div>
-                      <div><span className="font-medium">Status:</span> {selectedEvent.statusText}</div>
-                      {selectedEvent.notes && (
-                        <div><span className="font-medium">Notes:</span> {selectedEvent.notes}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Review Information</h4>
-                    <div className="space-y-2 text-sm">
-                      <div><span className="font-medium">Status:</span> {selectedEvent.statusText}</div>
-                      <div><span className="font-medium">Event ID:</span> {selectedEvent.id}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
-                  <p className="text-gray-700 text-sm">{selectedEvent.description}</p>
-                </div>
-
-                {/* Schedules */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Event Schedule</h4>
-                  {selectedEvent.scheduleMasters.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedEvent.scheduleMasters.map((scheduleMaster, index) => (
-                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                          <div className="font-medium">Schedule Master {index + 1}</div>
-                          {scheduleMaster.schedules.length > 0 ? (
-                            <div className="space-y-2 mt-2">
-                              {scheduleMaster.schedules.map((schedule, sIndex) => (
-                                <div key={sIndex} className="flex items-center gap-4 p-3 bg-gray-100 rounded-lg">
-                                  <Clock className="h-4 w-4 text-gray-500" />
-                                  <div className="text-sm">
-                                    <div>Schedule {sIndex + 1}</div>
-                                    <div>Start: {formatTime(schedule.startTime)}</div>
-                                    <div>End: {formatTime(schedule.endTime)}</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-gray-500 text-sm">No schedules defined for this master</p>
-                          )}
+                {/* Parse các JSON fields để hiển thị đẹp hơn */}
+                {(() => {
+                  const requirements = parseNotes(selectedEvent.notes)
+                  const timeline = parseAgenda(selectedEvent.agenda)
+                  const instructor = parseInstructor(selectedEvent.instructorName)
+                  
+                  return (
+                    <>
+                      {/* Event Image Preview */}
+                      {selectedEvent.imageUrl && (
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <h5 className="font-medium text-gray-900 mb-3">🖼️ Event Image</h5>
+                          <img
+                            src={selectedEvent.imageUrl}
+                            alt="Event preview"
+                            className="w-full max-w-md h-64 object-cover rounded-lg border border-gray-300"
+                          />
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No schedule masters defined</p>
-                  )}
-                </div>
+                      )}
 
-                {/* Ticket Types */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Ticket Types</h4>
-                  {selectedEvent.scheduleMasters.length > 0 ? (
-                    <div className="space-y-4">
-                      {selectedEvent.scheduleMasters.map((scheduleMaster, masterIndex) => (
-                        <div key={masterIndex} className="space-y-2">
-                          <h5 className="font-medium text-gray-700">Schedule Master {masterIndex + 1}</h5>
-                          {scheduleMaster.schedules.length > 0 ? (
-                            scheduleMaster.schedules.map((schedule, scheduleIndex) => (
-                              <div key={scheduleIndex} className="ml-4 space-y-2">
-                                <h6 className="font-medium text-gray-600">Schedule {scheduleIndex + 1}</h6>
-                                {schedule.ticketTypes.map((ticket, ticketIndex) => (
-                                  <div key={ticketIndex} className="ml-4 p-3 bg-gray-50 rounded-lg">
-                                    <div className="font-medium">{ticket.name}</div>
-                                    <div className="text-sm text-gray-600">
-                                      <div>Price: ${ticket.price.toLocaleString()}</div>
-                                      <div>Quantity: {ticket.totalQuantity}</div>
-                                      <div>Max per user: {ticket.maxPerUser}</div>
-                                      {ticket.isEarlyBird && (
-                                        <div>Early bird: Yes (Deadline: {formatDate(ticket.earlyBirdDeadline)})</div>
-                                      )}
-                                      <div>Discount rate: {(ticket.discountRate * 100).toFixed(0)}%</div>
-                                    </div>
+                      {/* Basic Information */}
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <h5 className="font-medium text-gray-900 mb-3">📝 Basic Information</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">Code:</span>
+                            <span className="ml-2 font-medium">{selectedEvent.code}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Title:</span>
+                            <span className="ml-2 font-medium">{selectedEvent.title}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Category:</span>
+                            <span className="ml-2 font-medium">{selectedEvent.categoryName}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Level:</span>
+                            <span className="ml-2 font-medium">{selectedEvent.levelName}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Phone:</span>
+                            <span className="ml-2 font-medium">{selectedEvent.phoneNumber || "Not provided"}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Status:</span>
+                            <span className="ml-2">{getStatusBadge(selectedEvent.status)}</span>
+                          </div>
+                          <div className="md:col-span-2">
+                            <span className="text-gray-600">Description:</span>
+                            <p className="mt-1 text-gray-800">{selectedEvent.description}</p>
+                          </div>
+                          
+                          {/* Requirements */}
+                          <div className="md:col-span-2">
+                            <span className="text-gray-600">Requirements:</span>
+                            {requirements.length > 0 ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {requirements.map((req, index) => (
+                                  <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {req}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-gray-500">No requirements added</p>
+                            )}
+                          </div>
+                          
+                          {/* Timeline */}
+                          <div className="md:col-span-2">
+                            <span className="text-gray-600">Timeline:</span>
+                            {timeline.length > 0 ? (
+                              <div className="mt-2 space-y-2">
+                                {timeline.map((item, index) => (
+                                  <div key={index} className="flex items-center space-x-3 text-sm">
+                                    <span className="font-medium text-gray-700">{item.start} - {item.end}</span>
+                                    <span className="text-gray-600">|</span>
+                                    <span className="font-medium">{item.title}</span>
+                                    {item.desc && (
+                                      <>
+                                        <span className="text-gray-600">|</span>
+                                        <span className="text-gray-500">{item.desc}</span>
+                                      </>
+                                    )}
                                   </div>
                                 ))}
                               </div>
-                            ))
-                          ) : (
-                            <p className="text-gray-500 text-sm ml-4">No schedules defined for this master</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No ticket types defined</p>
-                  )}
-                </div>
-
-                {/* Add-ons */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Add-ons</h4>
-                  {selectedEvent.addOns.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedEvent.addOns.map((addon, index) => (
-                        <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <div className="font-medium">Add-on {index + 1}</div>
-                            <div>Name: {addon.name}</div>
-                            <div>Price: ${addon.price.toLocaleString()}</div>
+                            ) : (
+                              <p className="mt-1 text-gray-500">No timeline added</p>
+                            )}
+                          </div>
+                          
+                          {/* Instructor */}
+                          <div className="md:col-span-2">
+                            <span className="text-gray-600">Instructor:</span>
+                            <div className="mt-1">
+                              {instructor.name ? (
+                                <div>
+                                  <div className="font-medium">{instructor.name}</div>
+                                  {instructor.experience && (
+                                    <div className="text-sm text-gray-600 mt-1">{instructor.experience}</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 italic">Not provided</span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No add-ons defined</p>
-                  )}
-                </div>
+                      </div>
 
-                {/* Locations */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Event Locations</h4>
-                  {selectedEvent.locations.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedEvent.locations.map((location, index) => (
-                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                          <div className="font-medium">Location {index + 1}</div>
-                          <div>Name: {location.name}</div>
-                          <div>Address: {location.address}</div>
+                      {/* Schedule */}
+                      {selectedEvent.scheduleMasters.length > 0 && (
+                        <div className="p-4 bg-blue-50 rounded-lg">
+                          <h5 className="font-medium text-gray-900 mb-3">📅 Schedule</h5>
+                          {selectedEvent.scheduleMasters.map((scheduleMaster, index) => (
+                            <div key={index} className="text-sm mb-4">
+                              <div className="font-medium text-blue-900 mb-2">Schedule Master {index + 1}</div>
+                              <div><span className="text-gray-600">Start:</span> <span className="ml-2 font-medium">{new Date(scheduleMaster.startDate).toLocaleString()}</span></div>
+                              <div><span className="text-gray-600">End:</span> <span className="ml-2 font-medium">{new Date(scheduleMaster.recurrenceEndDate).toLocaleString()}</span></div>
+                              <div><span className="text-gray-600">Duration:</span> <span className="ml-2 font-medium">{scheduleMaster.duration}</span></div>
+                              <div><span className="text-gray-600">Recurrence:</span> <span className="ml-2 font-medium">{scheduleMaster.recurrenceType === 2 ? "Weekly" : "One-time"}</span></div>
+                              <div><span className="text-gray-600">Repeat Count:</span> <span className="ml-2 font-medium">{scheduleMaster.repeatCount}</span></div>
+                              
+                              {/* Hiển thị các schedule cụ thể */}
+                              {scheduleMaster.schedules.length > 0 && (
+                                <div className="mt-3">
+                                  <div className="text-sm font-medium text-blue-800 mb-2">Generated Schedules:</div>
+                                  <div className="space-y-1">
+                                    {scheduleMaster.schedules.map((schedule, sIndex) => (
+                                      <div key={sIndex} className="text-xs bg-white p-2 rounded border border-blue-200">
+                                        Session {sIndex + 1}: {formatDate(schedule.startTime)} at {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No locations defined</p>
-                  )}
-                </div>
+                      )}
 
-                {/* Action Buttons */}
-                {selectedEvent.status === 0 && (
-                  <div className="flex gap-3 pt-4 border-t border-gray-200">
-                    <button 
-                      onClick={() => {
-                        setShowDetailModal(false)
-                        handleApprove(selectedEvent)
-                      }}
-                      className="flex-1 bg-green-600 text-white rounded-lg px-4 py-3 hover:bg-green-700 font-medium transition-all duration-200 shadow-md flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      Approve Event
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setShowDetailModal(false)
-                        handleReject(selectedEvent)
-                      }}
-                      className="flex-1 bg-red-600 text-white rounded-lg px-4 py-3 hover:bg-red-700 font-medium transition-all duration-200 shadow-md flex items-center justify-center gap-2"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Reject Event
-                    </button>
-                  </div>
-                )}
+                      {/* Ticket Types */}
+                      {selectedEvent.scheduleMasters.length > 0 && 
+                       selectedEvent.scheduleMasters.some(sm => sm.schedules.some(s => s.ticketTypes.length > 0)) && (
+                        <div className="p-4 bg-green-50 rounded-lg">
+                          <h5 className="font-medium text-gray-900 mb-3">🎫 Ticket Types</h5>
+                          <div className="space-y-3">
+                            {(() => {
+                              // Lấy 2 loại vé đầu tiên từ schedule đầu tiên
+                              const firstSchedule = selectedEvent.scheduleMasters[0]?.schedules[0]
+                              if (firstSchedule && firstSchedule.ticketTypes.length > 0) {
+                                return firstSchedule.ticketTypes.slice(0, 2).map((ticket, index) => (
+                                  <div key={index} className="text-sm border border-green-200 rounded p-3 bg-white">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <span className="font-medium">{ticket.name}</span>
+                                      <span className="font-semibold">{ticket.price.toLocaleString('en-US')} VND</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+                                      <div>Quantity: {ticket.totalQuantity} available</div>
+                                      <div>Max per user: {ticket.maxPerUser}</div>
+                                      <div>Early Bird: {ticket.isEarlyBird ? `${Math.round(ticket.discountRateEarlyBird * 100)}% off` : 'Not enabled'}</div>
+                                      <div>Combo: {ticket.discountRateCombo !== null ? `${Math.round(ticket.discountRateCombo * 100)}% off` : 'Not enabled'}</div>
+                                    </div>
+                                    {ticket.isEarlyBird && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Early bird deadline: {formatDate(ticket.earlyBirdDeadline)}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              }
+                              return null
+                            })()}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Add-ons */}
+                      {selectedEvent.addOns.length > 0 && (
+                        <div className="p-4 bg-purple-50 rounded-lg">
+                          <h5 className="font-medium text-gray-900 mb-3">📦 Add-ons</h5>
+                          <div className="space-y-2">
+                            {selectedEvent.addOns.map((addon, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium">{addon.name}</span>
+                                  <span>{addon.price.toLocaleString('en-US')} VND</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Locations */}
+                      {selectedEvent.locations.length > 0 && (
+                        <div className="p-4 bg-yellow-50 rounded-lg">
+                          <h5 className="font-medium text-gray-900 mb-3">📍 Locations</h5>
+                          <div className="space-y-2">
+                            {selectedEvent.locations.map((location, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="font-medium">{location.name}</div>
+                                <div className="text-gray-600">{location.address}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      {selectedEvent.status === 0 && (
+                        <div className="flex gap-3 pt-4 border-t border-gray-200">
+                          <button 
+                            onClick={() => {
+                              setShowDetailModal(false)
+                              handleApprove(selectedEvent)
+                            }}
+                            className="flex-1 bg-green-600 text-white rounded-lg px-4 py-3 hover:bg-green-700 font-medium transition-all duration-200 shadow-md flex items-center justify-center gap-2"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Approve Event
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setShowDetailModal(false)
+                              handleReject(selectedEvent)
+                            }}
+                            className="flex-1 bg-red-600 text-white rounded-lg px-4 py-3 hover:bg-red-700 font-medium transition-all duration-200 shadow-md flex items-center justify-center gap-2"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Reject Event
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             )}
           </Modal>
