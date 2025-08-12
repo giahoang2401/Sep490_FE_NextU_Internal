@@ -161,6 +161,171 @@ const eventSteps = [
   { id: 6, title: "Preview", description: "Review and submit for approval" },
 ]
 
+// Utility functions for parsing/serializing fields
+const parseNotes = (notes: string): string[] => {
+  try {
+    const parsed = JSON.parse(notes)
+    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+      return parsed
+    }
+  } catch {
+    // Fallback: split by newlines
+    if (notes.trim()) {
+      return notes.split('\n').filter(line => line.trim())
+    }
+  }
+  return []
+}
+
+const serializeNotes = (notes: string[]): string => {
+  return JSON.stringify(notes)
+}
+
+const parseAgenda = (agenda: string): Array<{start: string; end: string; title: string; desc?: string}> => {
+  try {
+    const parsed = JSON.parse(agenda)
+    if (Array.isArray(parsed) && parsed.every(item => 
+      typeof item === 'object' && 
+      typeof item.start === 'string' && 
+      typeof item.end === 'string' && 
+      typeof item.title === 'string'
+    )) {
+      return parsed
+    }
+  } catch {
+    // Fallback: parse by line format "HH:MM-HH:MM | Title | Description"
+    if (agenda.trim()) {
+      return agenda.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const parts = line.split('|').map(part => part.trim())
+          if (parts.length >= 2) {
+            const timeRange = parts[0]
+            const title = parts[1]
+            const desc = parts[2] || ''
+            
+            const timeMatch = timeRange.match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/)
+            if (timeMatch) {
+              return {
+                start: timeMatch[1],
+                end: timeMatch[2],
+                title,
+                desc
+              }
+            }
+          }
+          return null
+        })
+        .filter(item => item !== null) as Array<{start: string; end: string; title: string; desc?: string}>
+    }
+  }
+  return []
+}
+
+const serializeAgenda = (agenda: Array<{start: string; end: string; title: string; desc?: string}>): string => {
+  return JSON.stringify(agenda)
+}
+
+const parseInstructor = (instructorName: string): {name: string; experience?: string} => {
+  try {
+    const parsed = JSON.parse(instructorName)
+    if (typeof parsed === 'object' && typeof parsed.name === 'string') {
+      return parsed
+    }
+  } catch {
+    // Fallback: treat entire string as name
+    if (instructorName.trim()) {
+      return { name: instructorName.trim() }
+    }
+  }
+  return { name: '' }
+}
+
+const serializeInstructor = (instructor: {name: string; experience?: string}): string => {
+  return JSON.stringify(instructor)
+}
+
+// Validation functions
+const validateNotes = (notes: string[]): {isValid: boolean; errors: string[]} => {
+  const errors: string[] = []
+  
+  if (notes.length === 0) {
+    errors.push("At least one requirement is required")
+  }
+  
+  if (notes.length > 12) {
+    errors.push("Maximum 12 requirements allowed")
+  }
+  
+  notes.forEach((note, index) => {
+    if (note.length < 1) {
+      errors.push(`Requirement ${index + 1} cannot be empty`)
+    } else if (note.length > 120) {
+      errors.push(`Requirement ${index + 1} must be 1-120 characters`)
+    }
+  })
+  
+  return { isValid: errors.length === 0, errors }
+}
+
+const validateAgenda = (agenda: Array<{start: string; end: string; title: string; desc?: string}>): {isValid: boolean; errors: string[]} => {
+  const errors: string[] = []
+  
+  if (agenda.length === 0) {
+    errors.push("At least one timeline item is required")
+  }
+  
+  agenda.forEach((item, index) => {
+    // Validate time format
+    const timeRegex = /^\d{1,2}:\d{2}$/
+    if (!timeRegex.test(item.start)) {
+      errors.push(`Item ${index + 1}: Invalid start time format (HH:MM)`)
+    }
+    if (!timeRegex.test(item.end)) {
+      errors.push(`Item ${index + 1}: Invalid end time format (HH:MM)`)
+    }
+    
+    // Validate start < end
+    if (timeRegex.test(item.start) && timeRegex.test(item.end)) {
+      const startMinutes = parseInt(item.start.split(':')[0]) * 60 + parseInt(item.start.split(':')[1])
+      const endMinutes = parseInt(item.end.split(':')[0]) * 60 + parseInt(item.end.split(':')[1])
+      if (startMinutes >= endMinutes) {
+        errors.push(`Item ${index + 1}: Start time must be before end time`)
+      }
+    }
+    
+    // Validate title
+    if (item.title.length < 1) {
+      errors.push(`Item ${index + 1}: Title is required`)
+    } else if (item.title.length > 120) {
+      errors.push(`Item ${index + 1}: Title must be 1-120 characters`)
+    }
+    
+    // Validate description
+    if (item.desc && item.desc.length > 200) {
+      errors.push(`Item ${index + 1}: Description must be 200 characters or less`)
+    }
+  })
+  
+  return { isValid: errors.length === 0, errors }
+}
+
+const validateInstructor = (instructor: {name: string; experience?: string}): {isValid: boolean; errors: string[]} => {
+  const errors: string[] = []
+  
+  if (!instructor.name.trim()) {
+    errors.push("Instructor name is required")
+  } else if (instructor.name.length > 80) {
+    errors.push("Instructor name must be 80 characters or less")
+  }
+  
+  if (instructor.experience && instructor.experience.length > 200) {
+    errors.push("Experience must be 200 characters or less")
+  }
+  
+  return { isValid: errors.length === 0, errors }
+}
+
 export default function EventManagementPage() {
   // State management
   const [currentStep, setCurrentStep] = useState(1)
@@ -202,6 +367,16 @@ export default function EventManagementPage() {
     addOns: [],
     locations: []
   })
+
+  // Internal state for enhanced UX
+  const [requirements, setRequirements] = useState<string[]>([])
+  const [timeline, setTimeline] = useState<Array<{start: string; end: string; title: string; desc?: string}>>([])
+  const [instructor, setInstructor] = useState<{name: string; experience?: string}>({ name: '' })
+  
+  // Validation errors
+  const [notesErrors, setNotesErrors] = useState<string[]>([])
+  const [agendaErrors, setAgendaErrors] = useState<string[]>([])
+  const [instructorErrors, setInstructorErrors] = useState<string[]>([])
 
   // Temporary form states for better UX
   const [tempSchedule, setTempSchedule] = useState({
@@ -260,6 +435,19 @@ export default function EventManagementPage() {
       return `${hours}:00:00`
     }
   }
+
+  // Initialize internal state from formData
+  useEffect(() => {
+    if (formData.notes) {
+      setRequirements(parseNotes(formData.notes))
+    }
+    if (formData.agenda) {
+      setTimeline(parseAgenda(formData.agenda))
+    }
+    if (formData.instructorName) {
+      setInstructor(parseInstructor(formData.instructorName))
+    }
+  }, [formData.notes, formData.agenda, formData.instructorName])
 
   // Helper function to update formData from tempSchedule
   const updateFormDataFromTempSchedule = (updatedTempSchedule?: typeof tempSchedule) => {
@@ -992,36 +1180,6 @@ export default function EventManagementPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                      <textarea
-                        rows={3}
-                        value={formData.notes}
-                        onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                        placeholder="Enter any additional notes or comments..."
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Agenda</label>
-                      <textarea
-                        rows={4}
-                        value={formData.agenda}
-                        onChange={(e) => setFormData({...formData, agenda: e.target.value})}
-                        placeholder="Enter detailed agenda, schedule, or program outline..."
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Instructor Name</label>
-                      <input
-                        type="text"
-                        value={formData.instructorName}
-                        onChange={(e) => setFormData({...formData, instructorName: e.target.value})}
-                        placeholder="Enter instructor or facilitator name"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                       <input
                         type="tel"
@@ -1032,23 +1190,132 @@ export default function EventManagementPage() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Promotional Image/Video</label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-                        <Image className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">Drag and drop or click to upload image</p>
-                        <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to 10MB</p>
+                  
+                  <div className="space-y-6">
+                    {/* Requirements Section */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900">📋 Requirements</h4>
+                        <button
+                          onClick={() => {
+                            if (requirements.length < 12) {
+                              setRequirements([...requirements, ''])
+                            }
+                          }}
+                          disabled={requirements.length >= 12}
+                          className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </button>
                       </div>
+                      
+                      {requirements.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500">
+                          <p className="text-sm">No requirements added yet</p>
+                          <button
+                            onClick={() => setRequirements([''])}
+                            className="mt-2 text-blue-600 hover:text-blue-700 text-sm"
+                          >
+                            Add first requirement
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {requirements.map((req, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <input
+                                type="text"
+                                value={req}
+                                onChange={(e) => {
+                                  const updated = [...requirements]
+                                  updated[index] = e.target.value
+                                  setRequirements(updated)
+                                  // Update formData
+                                  setFormData({
+                                    ...formData,
+                                    notes: serializeNotes(updated)
+                                  })
+                                }}
+                                placeholder="Enter requirement..."
+                                className="flex-1 border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={() => {
+                                  const updated = requirements.filter((_, i) => i !== index)
+                                  setRequirements(updated)
+                                  setFormData({
+                                    ...formData,
+                                    notes: serializeNotes(updated)
+                                  })
+                                }}
+                                className="text-red-600 hover:text-red-800 p-1"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {notesErrors.length > 0 && (
+                        <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                          {notesErrors.map((error, index) => (
+                            <div key={index}>• {error}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h4 className="font-medium text-blue-900 mb-2">💡 Tips</h4>
-                      <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• Event title should be concise and attractive</li>
-                        <li>• Provide clear description of content and benefits</li>
-                        <li>• Use high-quality images</li>
-                        <li>• Choose appropriate category and level</li>
-                      </ul>
+
+
+
+                    {/* Instructor Section */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3">👨‍🏫 Instructor</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                          <input
+                            type="text"
+                            value={instructor.name}
+                            onChange={(e) => {
+                              const updated = { ...instructor, name: e.target.value }
+                              setInstructor(updated)
+                              setFormData({
+                                ...formData,
+                                instructorName: serializeInstructor(updated)
+                              })
+                            }}
+                            placeholder="Enter instructor name"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Experience</label>
+                          <textarea
+                            rows={2}
+                            value={instructor.experience || ''}
+                            onChange={(e) => {
+                              const updated = { ...instructor, experience: e.target.value }
+                              setInstructor(updated)
+                              setFormData({
+                                ...formData,
+                                instructorName: serializeInstructor(updated)
+                              })
+                            }}
+                            placeholder="Brief experience description..."
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      
+                      {instructorErrors.length > 0 && (
+                        <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                          {instructorErrors.map((error, index) => (
+                            <div key={index}>• {error}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1152,14 +1419,119 @@ export default function EventManagementPage() {
                       <p className="text-xs text-gray-500 mt-1">Number of times the event will repeat weekly</p>
                     </div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">📅 Schedule Reference</h4>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <p><strong>Morning Yoga:</strong> 6:00 - 8:00</p>
-                      <p><strong>Creative Workshop:</strong> 14:00 - 17:00</p>
-                      <p><strong>Cooking Together:</strong> 18:00 - 21:00</p>
-                      <p><strong>Weekend Retreat:</strong> Saturday - Sunday</p>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900">⏰ Timeline</h4>
+                      <button
+                        onClick={() => {
+                          setTimeline([...timeline, { start: '', end: '', title: '', desc: '' }])
+                        }}
+                        className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add
+                      </button>
                     </div>
+                    
+                    {timeline.length === 0 ? (
+                      <div className="text-center py-4 text-gray-500">
+                        <p className="text-sm">No timeline items added yet</p>
+                        <button
+                          onClick={() => setTimeline([{ start: '', end: '', title: '', desc: '' }])}
+                          className="mt-2 text-green-600 hover:text-green-700 text-sm"
+                        >
+                          Add first timeline item
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {timeline.map((item, index) => (
+                          <div key={index} className="border border-gray-200 rounded p-3 bg-gray-50">
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                              <input
+                                type="time"
+                                value={item.start}
+                                onChange={(e) => {
+                                  const updated = [...timeline]
+                                  updated[index] = { ...item, start: e.target.value }
+                                  setTimeline(updated)
+                                  setFormData({
+                                    ...formData,
+                                    agenda: serializeAgenda(updated)
+                                  })
+                                }}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="time"
+                                value={item.end}
+                                onChange={(e) => {
+                                  const updated = [...timeline]
+                                  updated[index] = { ...item, end: e.target.value }
+                                  setTimeline(updated)
+                                  setFormData({
+                                    ...formData,
+                                    agenda: serializeAgenda(updated)
+                                  })
+                                }}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={item.title}
+                              onChange={(e) => {
+                                const updated = [...timeline]
+                                updated[index] = { ...item, title: e.target.value }
+                                setTimeline(updated)
+                                setFormData({
+                                  ...formData,
+                                  agenda: serializeAgenda(updated)
+                                })
+                              }}
+                              placeholder="Title"
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                            />
+                            <input
+                              type="text"
+                              value={item.desc || ''}
+                              onChange={(e) => {
+                                const updated = [...timeline]
+                                updated[index] = { ...item, desc: e.target.value }
+                                setTimeline(updated)
+                                setFormData({
+                                  ...formData,
+                                  agenda: serializeAgenda(updated)
+                                })
+                              }}
+                              placeholder="Description (optional)"
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = timeline.filter((_, i) => i !== index)
+                                setTimeline(updated)
+                                setFormData({
+                                  ...formData,
+                                  agenda: serializeAgenda(updated)
+                                })
+                              }}
+                              className="mt-2 text-red-600 hover:text-red-800 text-xs"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {agendaErrors.length > 0 && (
+                      <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                        {agendaErrors.map((error, index) => (
+                          <div key={index}>• {error}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1744,10 +2116,7 @@ export default function EventManagementPage() {
                             {levels.find(l => l.id === formData.levelId)?.name || "Not selected"}
                           </span>
                         </div>
-                        <div>
-                          <span className="text-gray-600">Instructor:</span>
-                          <span className="ml-2 font-medium">{formData.instructorName || "Not provided"}</span>
-                        </div>
+
                         <div>
                           <span className="text-gray-600">Phone:</span>
                           <span className="ml-2 font-medium">{formData.phoneNumber || "Not provided"}</span>
@@ -1757,12 +2126,55 @@ export default function EventManagementPage() {
                           <p className="mt-1 text-gray-800">{formData.description || "Not provided"}</p>
                         </div>
                         <div className="md:col-span-2">
-                          <span className="text-gray-600">Notes:</span>
-                          <p className="mt-1 text-gray-800">{formData.notes || "Not provided"}</p>
+                          <span className="text-gray-600">Requirements:</span>
+                          {requirements.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {requirements.map((req, index) => (
+                                <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {req}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-gray-500">No requirements added</p>
+                          )}
                         </div>
                         <div className="md:col-span-2">
-                          <span className="text-gray-600">Agenda:</span>
-                          <p className="mt-1 text-gray-800">{formData.agenda || "Not provided"}</p>
+                          <span className="text-gray-600">Timeline:</span>
+                          {timeline.length > 0 ? (
+                            <div className="mt-2 space-y-2">
+                              {timeline.map((item, index) => (
+                                <div key={index} className="flex items-center space-x-3 text-sm">
+                                  <span className="font-medium text-gray-700">{item.start} - {item.end}</span>
+                                  <span className="text-gray-600">|</span>
+                                  <span className="font-medium">{item.title}</span>
+                                  {item.desc && (
+                                    <>
+                                      <span className="text-gray-600">|</span>
+                                      <span className="text-gray-500">{item.desc}</span>
+                                    </>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-gray-500">No timeline added</p>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <span className="text-gray-600">Instructor:</span>
+                          <div className="mt-1">
+                            {instructor.name ? (
+                              <div>
+                                <div className="font-medium">{instructor.name}</div>
+                                {instructor.experience && (
+                                  <div className="text-sm text-gray-600 mt-1">{instructor.experience}</div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-500 italic">Not provided</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1958,18 +2370,6 @@ export default function EventManagementPage() {
                         Notify.failure("Description is required")
                         return
                       }
-                      if (!finalData.notes || !finalData.notes.trim()) {
-                        Notify.failure("Notes is required")
-                        return
-                      }
-                      if (!finalData.agenda || !finalData.agenda.trim()) {
-                        Notify.failure("Agenda is required")
-                        return
-                      }
-                      if (!finalData.instructorName || !finalData.instructorName.trim()) {
-                        Notify.failure("Instructor name is required")
-                        return
-                      }
                       if (!finalData.phoneNumber || !finalData.phoneNumber.trim()) {
                         Notify.failure("Phone number is required")
                         return
@@ -1984,6 +2384,28 @@ export default function EventManagementPage() {
                       }
                       if (!finalData.scheduleMasters || finalData.scheduleMasters.length === 0) {
                         Notify.failure("At least one schedule is required")
+                        return
+                      }
+                      
+                      // Validate enhanced fields using internal state
+                      const notesValidation = validateNotes(requirements)
+                      if (!notesValidation.isValid) {
+                        setNotesErrors(notesValidation.errors)
+                        Notify.failure(notesValidation.errors[0])
+                        return
+                      }
+                      
+                      const agendaValidation = validateAgenda(timeline)
+                      if (!agendaValidation.isValid) {
+                        setAgendaErrors(agendaValidation.errors)
+                        Notify.failure(agendaValidation.errors[0])
+                        return
+                      }
+                      
+                      const instructorValidation = validateInstructor(instructor)
+                      if (!instructorValidation.isValid) {
+                        setInstructorErrors(instructorValidation.errors)
+                        Notify.failure(instructorValidation.errors[0])
                         return
                       }
                       
@@ -2045,7 +2467,28 @@ export default function EventManagementPage() {
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-700">Instructor:</span>
-                      <span className="ml-2 text-sm text-gray-600">{selectedEvent.instructorName || "Not provided"}</span>
+                      <div className="ml-2">
+                        {(() => {
+                          try {
+                            const parsedInstructor = JSON.parse(selectedEvent.instructorName)
+                            if (parsedInstructor.name) {
+                              return (
+                                <div>
+                                  <div className="text-sm font-medium">{parsedInstructor.name}</div>
+                                  {parsedInstructor.experience && (
+                                    <div className="text-sm text-gray-600 mt-1">{parsedInstructor.experience}</div>
+                                  )}
+                                </div>
+                              )
+                            }
+                          } catch {
+                            // Fallback to plain text
+                            return (
+                              <span className="text-sm text-gray-600">{selectedEvent.instructorName || "Not provided"}</span>
+                            )
+                          }
+                        })()}
+                      </div>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-700">Phone:</span>
@@ -2064,14 +2507,58 @@ export default function EventManagementPage() {
                     <div className="mt-4 space-y-3">
                       {selectedEvent.notes && (
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Notes:</span>
-                          <p className="mt-1 text-sm text-gray-600">{selectedEvent.notes}</p>
+                          <span className="text-sm font-medium text-gray-700">Requirements:</span>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {(() => {
+                              try {
+                                const parsedNotes = JSON.parse(selectedEvent.notes)
+                                if (Array.isArray(parsedNotes)) {
+                                  return parsedNotes.map((req, index) => (
+                                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      {req}
+                                    </span>
+                                  ))
+                                }
+                              } catch {
+                                // Fallback to plain text
+                                return (
+                                  <p className="mt-1 text-sm text-gray-600">{selectedEvent.notes}</p>
+                                )
+                              }
+                            })()}
+                          </div>
                         </div>
                       )}
                       {selectedEvent.agenda && (
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Agenda:</span>
-                          <p className="mt-1 text-sm text-gray-600">{selectedEvent.agenda}</p>
+                          <span className="text-sm font-medium text-gray-700">Timeline:</span>
+                          <div className="mt-2 space-y-2">
+                            {(() => {
+                              try {
+                                const parsedAgenda = JSON.parse(selectedEvent.agenda)
+                                if (Array.isArray(parsedAgenda)) {
+                                  return parsedAgenda.map((item, index) => (
+                                    <div key={index} className="flex items-center space-x-3 text-sm">
+                                      <span className="font-medium text-gray-700">{item.start} - {item.end}</span>
+                                      <span className="text-gray-600">|</span>
+                                      <span className="font-medium">{item.title}</span>
+                                      {item.desc && (
+                                        <>
+                                          <span className="text-gray-600">|</span>
+                                          <span className="text-gray-500">{item.desc}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  ))
+                                }
+                              } catch {
+                                // Fallback to plain text
+                                return (
+                                  <p className="mt-1 text-sm text-gray-600">{selectedEvent.agenda}</p>
+                                )
+                              }
+                            })()}
+                          </div>
                         </div>
                       )}
                     </div>

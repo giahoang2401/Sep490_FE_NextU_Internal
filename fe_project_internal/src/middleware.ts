@@ -6,44 +6,58 @@ export function middleware(request: NextRequest) {
   const userStr = request.cookies.get('nextu_internal_user')?.value
   const user = userStr ? JSON.parse(userStr) : null
 
-  // Super admin chỉ được vào /internal/super-admin
+  // Super admin chỉ được vào 
   if (request.nextUrl.pathname.startsWith('/super-admin')) {
     if (!user || user.role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const res = NextResponse.redirect(new URL('/login', request.url))
+      res.cookies.set('mw', 'src', { path: '/' })
+      return res
     }
   }
-  // Admin chỉ được vào /internal/admin
+  // Admin chỉ được vào 
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!user || user.role !== 'admin') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const res = NextResponse.redirect(new URL('/login', request.url))
+      res.cookies.set('mw', 'src', { path: '/' })
+      return res
     }
   }
-  // Manager chỉ được vào /internal/manager
+  // Manager chỉ được vào 
   if (request.nextUrl.pathname.startsWith('/manager')) {
     if (!user || user.role !== 'manager') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const res = NextResponse.redirect(new URL('/login', request.url))
+      res.cookies.set('mw', 'src', { path: '/' })
+      return res
     }
   }
-  // Staff_Membership chỉ được vào /internal/staff-membership
+  // Staff_Membership chỉ được vào 
   if (request.nextUrl.pathname.startsWith('/staff-onboarding')) {
     if (!user || user.role !== 'staff_onboarding') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const res = NextResponse.redirect(new URL('/login', request.url))
+      res.cookies.set('mw', 'src', { path: '/' })
+      return res
     }
   }
-  // Staff_Services chỉ được vào /internal/staff-services
+  // Staff_Services chỉ được vào 
   if (request.nextUrl.pathname.startsWith('/staff-services')) {
     if (!user || user.role !== 'staff_service') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const res = NextResponse.redirect(new URL('/login', request.url))
+      res.cookies.set('mw', 'src', { path: '/' })
+      return res
     }
   }
-  // Staff_Content chỉ được vào /internal/staff-content
+  // Staff_Content chỉ được vào
   if (request.nextUrl.pathname.startsWith('/staff-content')) {
     if (!user || user.role !== 'staff_content') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const res = NextResponse.redirect(new URL('/login', request.url))
+      res.cookies.set('mw', 'src', { path: '/' })
+      return res
     }
   }
 
-  return NextResponse.next()
+  const res = NextResponse.next()
+  res.cookies.set('mw', 'src', { path: '/' })
+  return res
 }
 
 export const config = {

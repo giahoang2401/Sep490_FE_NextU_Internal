@@ -68,6 +68,66 @@ export interface Location {
   name: string
   description: string
 }
+
+// New interfaces for location management
+export interface City {
+  id: string
+  name: string
+  description: string
+}
+
+export interface LocationDetail {
+  id: string
+  name: string
+  description: string | null
+  cityId: string
+  cityName: string
+}
+
+export interface Property {
+  id: string
+  name: string
+  description: string | null
+  locationId: string
+  locationName: string
+  cityId: string
+  cityName: string
+}
+
+export interface CreateCityData {
+  name: string
+  description: string
+}
+
+export interface CreateLocationData {
+  cityId: string
+  name: string
+  description: string
+}
+
+export interface CreatePropertyData {
+  locationId: string
+  name: string
+  description: string
+}
+
+export interface UpdateCityData {
+  name: string
+  description: string
+}
+
+export interface UpdateLocationData {
+  cityId: string
+  name: string
+  description: string
+}
+
+export interface UpdatePropertyData {
+  locationId: string
+  name: string
+  description: string
+}
+
 export interface CreateAdminPayload {
   userName: string
   email: string

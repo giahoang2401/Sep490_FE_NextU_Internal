@@ -19,7 +19,7 @@ const roles = [
   {
     name: "SuperAdmin",
     description: "Full system authority - Create Admin accounts for regions",
-    href: "/internal/superadmin",
+    href: "/super-admin",
     icon: Shield,
     color: "bg-red-500",
     permissions: ["Create Admin accounts", "Global system access", "Manage all users and partners"],

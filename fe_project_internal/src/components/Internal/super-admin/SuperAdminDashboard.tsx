@@ -16,6 +16,7 @@ import DashboardCard from "../shared/dashboardCard";
 import DataTable from "../shared/dataTable";
 import CreateAccountForm from "../shared/createAccountForm";
 import RoleLayout from "../shared/roleLayout";
+import LocationStats from "./LocationStats";
 import type {
   NavigationItem,
   User,
@@ -27,19 +28,24 @@ import type {
 const navigation: NavigationItem[] = [
   {
     name: "System Overview",
-    href: "/internal/superadmin",
+    href: "/super-admin",
     icon: Globe,
     current: true,
   },
-  { name: "Manage Admins", href: "/internal/superadmin/admins", icon: Users },
+  { name: "Manage Admins", href: "/super-admin/admins", icon: Users },
+  {
+    name: "Location Management",
+    href: "/super-admin/locations",
+    icon: MapPin,
+  },
   {
     name: "System Config",
-    href: "/internal/superadmin/config",
+    href: "/super-admin/config",
     icon: Settings,
   },
   {
     name: "Global Reports",
-    href: "/internal/superadmin/reports",
+    href: "/super-admin/reports",
     icon: BarChart3,
   },
 ];
@@ -87,6 +93,7 @@ const adminData = [
 export default function SuperAdminDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [availableLocations, setAvailableLocations] = useState<Location[]>([]);
+  const [locationStats, setLocationStats] = useState({ cities: 0, locations: 0, properties: 0 });
 
 useEffect(() => {
   const fetchLocations = async () => {
@@ -99,7 +106,26 @@ useEffect(() => {
     }
   }
 
+  const fetchLocationStats = async () => {
+    try {
+      const [citiesRes, locationsRes, propertiesRes] = await Promise.all([
+        api.get("/api/basePosition/cities"),
+        api.get("/api/basePosition/locations"),
+        api.get("/api/basePosition/properties"),
+      ]);
+      
+      setLocationStats({
+        cities: citiesRes.data.data?.length || 0,
+        locations: locationsRes.data.data?.length || 0,
+        properties: propertiesRes.data.data?.length || 0,
+      });
+    } catch (error) {
+      console.error("Failed to fetch location stats:", error);
+    }
+  }
+
   fetchLocations()
+  fetchLocationStats()
 }, [])
   const handleCreateAdmin = async (data: CreateAccountData) => {
     try {
@@ -151,7 +177,7 @@ console.log("📌 length:", availableLocations?.length)
             />
             <DashboardCard
               title="Active Locations"
-              value="8"
+              value={locationStats.locations}
               change="+2"
               changeType="increase"
               icon={MapPin}
@@ -190,7 +216,10 @@ console.log("📌 length:", availableLocations?.length)
                     Add new regional administrator
                   </div>
                 </button>
-                <button className="w-full text-left px-4 py-3 bg-green-50 hover:bg-green-100 rounded-md transition-colors">
+                <button 
+                  onClick={() => window.location.href = '/super-admin/locations'}
+                  className="w-full text-left px-4 py-3 bg-green-50 hover:bg-green-100 rounded-md transition-colors"
+                >
                   <div className="font-medium text-green-900">
                     Add New Location
                   </div>
@@ -209,35 +238,7 @@ console.log("📌 length:", availableLocations?.length)
               </div>
             </div>
 
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                System Activity
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-green-400 rounded-full" />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900">
-                      New admin created
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Sarah Wilson - Austin
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900">
-                      System update deployed
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Version 2.1.4 - 1 hour ago
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <LocationStats />
           </div>
 
           {/* Admin Table */}
