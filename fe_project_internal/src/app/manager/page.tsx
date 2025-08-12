@@ -1,4 +1,4 @@
-import ManagerDashboard from "@/components/internal/manager/ManagerDashboard"
+import ManagerDashboard from "@/components/Internal/manager/ManagerDashboard"
 
 export default function ManagerPage() {
   return <ManagerDashboard />

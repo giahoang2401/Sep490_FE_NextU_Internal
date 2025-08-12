@@ -1,4 +1,4 @@
-import { config } from "../config"
+
 import { deleteCookie, getCookie, hasCookie, setCookie } from "cookies-next"
 import api from "./axiosConfig"
 

@@ -109,6 +109,8 @@ interface PendingEventRequest {
   agenda: string
   instructorName: string
   phoneNumber: string
+  imageUrl: string
+  imageBlobName: string
   categoryId: number
   levelId: number
   scheduleMasters: ScheduleMaster[]
@@ -153,7 +155,7 @@ const mockUser: User = {
 
 // Event creation steps - redesigned for better UX
 const eventSteps = [
-  { id: 1, title: "Basic Information", description: "Title, category, description, image" },
+  { id: 1, title: "Basic Information", description: "Title, category, description, image upload" },
   { id: 2, title: "Schedule", description: "Date, time, duration, repeat pattern" },
   { id: 3, title: "Ticket Types", description: "Pricing, quantity, ticket categories" },
   { id: 4, title: "Add-ons", description: "Additional services, equipment, meals" },
@@ -361,6 +363,8 @@ export default function EventManagementPage() {
     agenda: "",
     instructorName: "",
     phoneNumber: "",
+    imageUrl: "",
+    imageBlobName: "",
     categoryId: 0,
     levelId: 0,
     scheduleMasters: [],
@@ -377,6 +381,11 @@ export default function EventManagementPage() {
   const [notesErrors, setNotesErrors] = useState<string[]>([])
   const [agendaErrors, setAgendaErrors] = useState<string[]>([])
   const [instructorErrors, setInstructorErrors] = useState<string[]>([])
+  
+  // Image upload states
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>("")
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   // Temporary form states for better UX
   const [tempSchedule, setTempSchedule] = useState({
@@ -448,6 +457,78 @@ export default function EventManagementPage() {
       setInstructor(parseInstructor(formData.instructorName))
     }
   }, [formData.notes, formData.agenda, formData.instructorName])
+
+  // Image upload function
+  const uploadImage = async (file: File) => {
+    setIsUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('File', file)
+      
+      const response = await api.post('/api/Files', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      
+      // Update form data with image URL and blob name
+      setFormData(prev => ({
+        ...prev,
+        imageUrl: response.data.url,
+        imageBlobName: response.data.blobName
+      }))
+      
+      Notify.success("Image uploaded successfully!")
+      return response.data
+    } catch (error: any) {
+      console.error("Error uploading image:", error)
+      Notify.failure(error.response?.data?.message || "Failed to upload image")
+      throw error
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  // Handle image selection
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        Notify.failure("Please select a valid image file")
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        Notify.failure("Image size must be less than 5MB")
+        return
+      }
+      
+      setSelectedImage(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+      
+      // Upload image immediately
+      uploadImage(file)
+    }
+  }
+
+  // Remove image
+  const removeImage = () => {
+    setSelectedImage(null)
+    setImagePreview("")
+    setFormData(prev => ({
+      ...prev,
+      imageUrl: "",
+      imageBlobName: ""
+    }))
+  }
 
   // Helper function to update formData from tempSchedule
   const updateFormDataFromTempSchedule = (updatedTempSchedule?: typeof tempSchedule) => {
@@ -593,6 +674,8 @@ export default function EventManagementPage() {
         agenda: eventData.agenda.trim(),
         instructorName: eventData.instructorName.trim(),
         phoneNumber: eventData.phoneNumber.trim(),
+        imageUrl: eventData.imageUrl || "",
+        imageBlobName: eventData.imageBlobName || "",
         categoryId: parseInt(eventData.categoryId.toString()),
         levelId: parseInt(eventData.levelId.toString()),
         scheduleMasters: eventData.scheduleMasters.map(schedule => ({
@@ -634,12 +717,17 @@ export default function EventManagementPage() {
         agenda: "",
         instructorName: "",
         phoneNumber: "",
+        imageUrl: "",
+        imageBlobName: "",
         categoryId: 0,
         levelId: 0,
         scheduleMasters: [],
         addOns: [],
         locations: []
       })
+      // Reset image states
+      setSelectedImage(null)
+      setImagePreview("")
       setCurrentStep(1)
       fetchEvents() // Refresh events list
     } catch (error: any) {
@@ -1178,6 +1266,58 @@ export default function EventManagementPage() {
                         placeholder="Enter detailed description, objectives, highlights..."
                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Event Image</label>
+                      <div className="space-y-3">
+                        {!imagePreview ? (
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                            <Image className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                            <div className="space-y-2">
+                              <p className="text-sm text-gray-600">Upload an event image</p>
+                              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                              <label className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer">
+                                {isUploadingImage ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Image className="h-4 w-4 mr-2" />
+                                    Choose Image
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleImageSelect}
+                                  disabled={isUploadingImage}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <img
+                              src={imagePreview}
+                              alt="Event preview"
+                              className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                            />
+                            <button
+                              onClick={removeImage}
+                              className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                              title="Remove image"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                              ✓ Image uploaded successfully
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
@@ -2096,6 +2236,18 @@ export default function EventManagementPage() {
                   <div className="mb-6">
                     <h4 className="text-lg font-medium text-gray-900 mb-4">Event Summary</h4>
                     
+                    {/* Event Image Preview */}
+                    {formData.imageUrl && (
+                      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                        <h5 className="font-medium text-gray-900 mb-3">🖼️ Event Image</h5>
+                        <img
+                          src={formData.imageUrl}
+                          alt="Event preview"
+                          className="w-full max-w-md h-64 object-cover rounded-lg border border-gray-300"
+                        />
+                      </div>
+                    )}
+
                     {/* Basic Information */}
                     <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                       <h5 className="font-medium text-gray-900 mb-3">📝 Basic Information</h5>
@@ -2120,6 +2272,12 @@ export default function EventManagementPage() {
                         <div>
                           <span className="text-gray-600">Phone:</span>
                           <span className="ml-2 font-medium">{formData.phoneNumber || "Not provided"}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Image:</span>
+                          <span className="ml-2 font-medium">
+                            {formData.imageUrl ? "✓ Image uploaded" : "No image uploaded"}
+                          </span>
                         </div>
                         <div className="md:col-span-2">
                           <span className="text-gray-600">Description:</span>
