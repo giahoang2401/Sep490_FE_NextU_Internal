@@ -75,10 +75,7 @@ export default function ContentReviewPage() {
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center space-x-4 mb-4">
-              <Link href="/staff-content" className="text-blue-600 hover:text-blue-800">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">Content Review Management</h1>
+            
             </div>
             <p className="text-gray-600">Gửi nội dung lên duyệt và theo dõi tiến trình phê duyệt</p>
           </div>

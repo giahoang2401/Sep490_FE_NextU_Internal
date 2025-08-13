@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import api from "../../../utils/axiosConfig";
 import { MapPin, Building2, Plus } from "lucide-react";
 import type { City, LocationDetail, Property } from "../types";
 
 export default function LocationStats() {
+  const router = useRouter();
   const [cities, setCities] = useState<City[]>([]);
   const [locations, setLocations] = useState<LocationDetail[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -53,7 +55,7 @@ export default function LocationStats() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-gray-900">Location Overview</h3>
         <button
-          onClick={() => window.location.href = '/super-admin/locations'}
+          onClick={() => router.push('/super-admin/locations')}
           className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100"
         >
           <Plus className="h-4 w-4 mr-1" />

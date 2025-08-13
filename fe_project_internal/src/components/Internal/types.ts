@@ -42,6 +42,7 @@ export interface CreateAccountFormProps {
   availableLocations: Location[]
   onSubmit: (data: CreateAccountData) => void
   onCancel: () => void
+  isLoading?: boolean
 }
 
 export interface ProfileInfo {
@@ -67,6 +68,10 @@ export interface Location {
   id: string
   name: string
   description: string
+  locationId: string
+  locationName: string
+  cityId: string
+  cityName: string
 }
 
 // New interfaces for location management
@@ -134,4 +139,29 @@ export interface CreateAdminPayload {
   password: string
   locationId: string
   skipEmailVerification?: boolean
+}
+
+export interface Admin {
+  accountId: string
+  username: string
+  email: string | null
+  emailVerified: boolean
+  isLocked: boolean
+  loginAttempt: number
+  refreshTokenExpiry: string | null
+  createdAt: string
+  phone: string | null
+  gender: string | null
+  dob: string | null
+  address: string | null
+  avatarUrl: string | null
+  profileCreatedAt: string
+  profileUpdatedAt: string | null
+  roleKey: string
+  roleName: string
+  roleType: string
+  locationId: string
+  locationName: string
+  cityId: string | null
+  description: string | null
 }

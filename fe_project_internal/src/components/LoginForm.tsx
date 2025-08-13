@@ -45,14 +45,18 @@ export default function LoginForm() {
 
       localStorage.setItem("access_token", data.access_token)
       localStorage.setItem("refresh_token", data.refresh_token)
+      localStorage.setItem("id_token", data.id_token)
+      localStorage.setItem("token_expires_in", data.expires_in.toString())
 
-      // Nếu backend trả về đủ thông tin user, lưu trực tiếp cả localStorage và cookie
+      // Lưu thông tin user từ API response mới
       const userInfo = {
         name: data.full_name,
         email: data.email,
         role: data.role.toLowerCase(),
-        location: data.location_id,
+        location: data.property_id,
         user_id: data.user_id,
+        property_name: data.propertyname_Locationname_CityName,
+        permissions: data.permission || [],
         avatar: "/placeholder.svg?height=32&width=32",
       }
       localStorage.setItem("nextu_internal_user", JSON.stringify(userInfo))

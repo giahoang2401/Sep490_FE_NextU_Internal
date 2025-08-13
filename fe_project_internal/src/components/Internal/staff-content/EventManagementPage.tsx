@@ -876,10 +876,8 @@ export default function EventManagementPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-4">
-            <Link href="/staff-content" className="text-blue-600 hover:text-blue-800">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Event/Workshop Management</h1>
+           
+            
           </div>
           <button 
             onClick={() => setShowCreateForm(true)}

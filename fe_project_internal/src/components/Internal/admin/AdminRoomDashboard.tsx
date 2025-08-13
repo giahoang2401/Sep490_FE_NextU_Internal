@@ -10,11 +10,52 @@ import type { User, TableColumn, NavigationItem } from "../types";
 import { MapPin, Users, UserPlus, BarChart3, DoorOpen } from "lucide-react";
 import { getNavigationForRole } from "../navigation";
 
+// Custom CSS for hiding scrollbars and ensuring modal width
+const scrollbarHideStyles = `
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Ensure Room Detail modal is wide */
+  .room-detail-modal {
+    max-width: 80vw !important;
+    width: 80vw !important;
+    min-width: 1200px !important;
+  }
+  
+  .room-detail-modal .modal-content {
+    width: 100% !important;
+    max-width: none !important;
+  }
+`;
+
+// Helper function to get user initials for avatar
+const getUserInitials = (name: string) => {
+  return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'A'
+}
+
 function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: React.ReactNode; onClose: () => void }) {
   if (!open) return null;
+  
+  // Check if this is the Room Detail modal by looking at the title
+  const isRoomDetailModal = title.startsWith('Room');
+  
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2">
-      <div className="bg-white shadow-2xl w-full max-w-6xl max-h-[98vh] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div 
+        className={`bg-white shadow-2xl w-full overflow-hidden animate-in fade-in-0 zoom-in-95 duration-300 ${
+          isRoomDetailModal ? 'max-w-7xl max-h-[95vh] room-detail-modal' : 'max-w-2xl max-h-[90vh]'
+        }`}
+        style={isRoomDetailModal ? {
+          width: '90vw',
+          maxWidth: '1400px',
+          minWidth: '1200px'
+        } : {}}
+      >
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
           <h3 className="text-xl font-bold text-gray-900">{title}</h3>
           <button 
@@ -24,21 +65,19 @@ function Modal({ open, title, children, onClose }: { open: boolean; title: strin
             ×
           </button>
         </div>
-        <div className="overflow-y-auto max-h-[calc(98vh-80px)]">{children}</div>
+        <div className={`overflow-y-auto ${isRoomDetailModal ? 'max-h-[calc(95vh-80px)]' : 'max-h-[calc(90vh-80px)]'}`}>
+          {isRoomDetailModal ? (
+            <div className="scrollbar-hide">
+              {children}
+            </div>
+          ) : (
+            children
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-const mockUser: User = {
-  id: "2",
-  name: "Jane Smith", 
-  email: "jane@nextu.com",
-  role: "Admin",
-  location: "San Francisco, CA",
-  region: "West Coast",
-  avatar: "/placeholder.svg?height=32&width=32",
-};
 
 interface AccommodationOption {
   id: string;
@@ -98,6 +137,30 @@ export default function AdminRoomDashboard() {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [showOptionModal, setShowOptionModal] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
+  
+  // New state for NextUServices and Ecosystems management
+  const [nextUServices, setNextUServices] = useState<{ id: string; name: string; serviceType: number; ecosystemId: string; ecosystemName: string; propertyId: string; propertyName: string; mediaGalleryId: string | null }[]>([]);
+  const [ecosystems, setEcosystems] = useState<{ id: string; code: string; name: string; description: string }[]>([]);
+  const [showNextUServiceModal, setShowNextUServiceModal] = useState(false);
+  const [showEcosystemModal, setShowEcosystemModal] = useState(false);
+  const [loadingNextUServices, setLoadingNextUServices] = useState(false);
+  const [loadingEcosystems, setLoadingEcosystems] = useState(false);
+  
+  // Form states for NextUService
+  const [nextUServiceForm, setNextUServiceForm] = useState({
+    name: "",
+    serviceType: 1,
+    ecosystemId: "",
+    propertyId: ""
+  });
+  
+  // Form states for Ecosystem
+  const [ecosystemForm, setEcosystemForm] = useState({
+    code: "",
+    name: "",
+    description: ""
+  });
+  
   const [optionForm, setOptionForm] = useState({
     roomTypeName: "",
     roomTypeId: "",
@@ -129,8 +192,28 @@ export default function AdminRoomDashboard() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [roomDetail, setRoomDetail] = useState<RoomInstance | null>(null);
-  const [nextUServices, setNextUServices] = useState<{ id: string; name: string }[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // User state from localStorage
+  const [user, setUser] = useState<{
+    id: string
+    name: string
+    email: string
+    role: string
+    location: string
+    property_name: string
+    region: string
+    avatar: string
+  }>({
+    id: "",
+    name: "",
+    email: "",
+    role: "",
+    location: "",
+    property_name: "",
+    region: "West Coast",
+    avatar: ""
+  })
   
   // Image upload state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -147,11 +230,37 @@ export default function AdminRoomDashboard() {
   const [dragOffset, setDragOffset] = useState(0);
   const [dragStartTime, setDragStartTime] = useState(0);
 
+  // Get user info from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("nextu_internal_user")
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr)
+          setUser({
+            id: userObj.user_id || "",
+            name: userObj.name || "",
+            email: userObj.email || "",
+            role: userObj.role || "",
+            location: userObj.property_name || "",
+            property_name: userObj.property_name || "",
+            region: "West Coast",
+            avatar: getUserInitials(userObj.name || "")
+          })
+        } catch (error) {
+          console.error("Error parsing user data:", error)
+        }
+      }
+    }
+  }, [])
+
   // Fetch data
   useEffect(() => {
     fetchOptions();
     fetchRooms();
     fetchRoomSelectOptions();
+    fetchNextUServices();
+    fetchEcosystems();
   }, []);
 
   // Lấy propertyId từ localStorage khi mở modal tạo Room Type
@@ -224,6 +333,63 @@ export default function AdminRoomDashboard() {
       setRoomViews([]);
       setRoomFloors([]);
       setBedTypes([]);
+    }
+  };
+
+  // Fetch NextUServices
+  const fetchNextUServices = async () => {
+    setLoadingNextUServices(true);
+    try {
+      const res = await api.get("/api/NextUServices");
+      setNextUServices(res.data);
+    } catch (err) {
+      setNextUServices([]);
+    } finally {
+      setLoadingNextUServices(false);
+    }
+  };
+
+  // Fetch Ecosystems
+  const fetchEcosystems = async () => {
+    setLoadingEcosystems(true);
+    try {
+      const res = await api.get("/api/Ecosystems");
+      setEcosystems(res.data);
+    } catch (err) {
+      setEcosystems([]);
+    } finally {
+      setLoadingEcosystems(false);
+    }
+  };
+
+  // Create NextUService
+  const handleCreateNextUService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post("/api/NextUServices", {
+        ...nextUServiceForm,
+        serviceType: Number(nextUServiceForm.serviceType),
+      });
+      setToast("NextU Service created successfully!");
+      setNextUServiceForm({ name: "", serviceType: 1, ecosystemId: "", propertyId: "" });
+      setShowNextUServiceModal(false);
+      fetchNextUServices();
+    } catch (err: any) {
+      setToast("Creation failed: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // Create Ecosystem
+  const handleCreateEcosystem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post("/api/Ecosystems", ecosystemForm);
+      setToast("Ecosystem created successfully!");
+      setEcosystemForm({ code: "", name: "", description: "" });
+      setShowEcosystemModal(false);
+      fetchEcosystems();
+    } catch (err: any) {
+      setToast("Creation failed: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -493,18 +659,15 @@ export default function AdminRoomDashboard() {
 
   return (
     <RoleLayout>
-      <Sidebar navigation={navigation} title="Next U" userRole="Regional Admin" />
+      <style dangerouslySetInnerHTML={{ __html: scrollbarHideStyles }} />
+      <Sidebar navigation={navigation} title="Next U" userRole="Admin" />
       <div className="lg:pl-64 flex flex-col flex-1 bg-gray-50 min-h-screen">
-        <TopNav user={mockUser} title="Room Management" />
+        <TopNav user={user} title="Room Management" />
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-          {/* Header Section */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Room Management</h1>
-            <p className="text-gray-600">Manage room types and rooms in the system</p>
-          </div>
+         
 
           {/* Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <DashboardCard 
               title="Total Rooms" 
               value={totalRooms} 
@@ -516,86 +679,257 @@ export default function AdminRoomDashboard() {
               icon={() => <span className="text-2xl">📦</span>} 
             />
             <DashboardCard 
-              title="Total Capacity" 
-              value={totalCapacity} 
-              icon={() => <span className="text-2xl">👥</span>} 
+              title="NextU Services" 
+              value={nextUServices.length} 
+              icon={() => <span className="text-2xl">🔧</span>} 
+            />
+            <DashboardCard 
+              title="Ecosystems" 
+              value={ecosystems.length} 
+              icon={() => <span className="text-2xl">🌐</span>} 
             />
           </div>
 
-          {/* Room Types */}
-          <div className="bg-white shadow-lg rounded-xl mb-8 overflow-hidden border border-gray-100">
-            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">Room Types List</h3>
-                  <p className="text-gray-600 text-sm mt-1">Manage different room types</p>
+          {/* Main Content Grid - 2x2 Layout */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-[calc(100vh-300px)]">
+            
+            {/* Top Left - Ecosystems */}
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Ecosystems</h3>
+                    <p className="text-gray-600 text-xs">Business ecosystems management</p>
+                  </div>
+                  <button 
+                    className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                    onClick={() => setShowEcosystemModal(true)}
+                  >
+                    + Add
+                  </button>
                 </div>
-                <button 
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2" 
-                  onClick={() => setShowOptionModal(true)}
-                >
-                  <span className="text-lg">+</span>
-                  Add Room Type
-                </button>
+              </div>
+              <div className="overflow-hidden h-[calc(100%-60px)]">
+                {loadingEcosystems ? (
+                  <div className="p-4 text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
+                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto h-full">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {ecosystems.map((ecosystem) => (
+                          <tr key={ecosystem.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{ecosystem.code}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{ecosystem.name}</td>
+                            <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-32">{ecosystem.description}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="overflow-hidden">
-              <DataTable columns={typeColumns} data={typeRows} />
-            </div>
-          </div>
 
-          {/* Rooms */}
-          <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">Rooms List</h3>
-                  <p className="text-gray-600 text-sm mt-1">Manage specific rooms</p>
+            {/* Top Right - NextU Services */}
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">NextU Services</h3>
+                    <p className="text-gray-600 text-xs">Service types management</p>
+                  </div>
+                  <button 
+                    className="bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                    onClick={() => setShowNextUServiceModal(true)}
+                  >
+                    + Add
+                  </button>
                 </div>
-                <button 
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2" 
-                  onClick={() => setShowRoomModal(true)}
-                >
-                  <span className="text-lg">+</span>
-                  Add Room
-                </button>
+              </div>
+              <div className="overflow-hidden h-[calc(100%-60px)]">
+                {loadingNextUServices ? (
+                  <div className="p-4 text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
+                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto h-full">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecosystem</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {nextUServices.map((service) => (
+                          <tr key={service.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{service.name}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{service.serviceType}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.ecosystemName}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.propertyName}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="overflow-hidden">
-              <DataTable columns={roomColumns} data={roomRows.map((row, idx) => ({...row, _roomId: rooms[idx].id}))} onRowClick={row => handleRowClick(row._roomId)} />
+
+            {/* Bottom Left - Room Types */}
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Room Types</h3>
+                    <p className="text-gray-600 text-xs">Accommodation types</p>
+                  </div>
+                  <button 
+                    className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                    onClick={() => setShowOptionModal(true)}
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-hidden h-[calc(100%-60px)]">
+                {loadingOptions ? (
+                  <div className="p-4 text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto h-full">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {options.map((option) => (
+                          <tr key={option.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{option.roomTypeName}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.capacity}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.pricePerNight?.toLocaleString()} VND</td>
+                            <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-32">{option.description}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Right - Rooms */}
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Rooms</h3>
+                    <p className="text-gray-600 text-xs">Room instances</p>
+                  </div>
+                  <button 
+                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                    onClick={() => setShowRoomModal(true)}
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-hidden h-[calc(100%-60px)]">
+                {loadingRooms ? (
+                  <div className="p-4 text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
+                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto h-full">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {rooms.map((room, index) => {
+                          const opt = options.find(o => o.id === room.accommodationOptionId);
+                          let addOnFee = 0;
+                          if (room.addOnFee !== undefined && !isNaN(Number(room.addOnFee))) {
+                            addOnFee = Number(room.addOnFee);
+                          }
+                          const finalPrice = opt ? (opt.pricePerNight || 0) + addOnFee : addOnFee;
+                          
+                          return (
+                            <tr key={room.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(room.id)}>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{room.roomName}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{room.roomCode}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{opt?.roomTypeName || '-'}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{finalPrice ? finalPrice.toLocaleString() + ' VND' : '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Add Room Type Modal */}
-          <Modal open={showOptionModal} title="Add New Room Type" onClose={() => setShowOptionModal(false)}>
-            <form className="space-y-6" onSubmit={handleCreateOption}>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type *</label>
-                <input 
-                  type="text" 
-                  required 
-                  placeholder="Enter room type name..." 
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
-                  value={optionForm.roomTypeName} 
-                  onChange={e => setOptionForm(f => ({ ...f, roomTypeName: e.target.value }))} 
-                />
+          <Modal open={showOptionModal} title="Add New Space Type" onClose={() => setShowOptionModal(false)}>
+            <form className="space-y-3 p-5" onSubmit={handleCreateOption}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Type *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Enter room type name..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                    value={optionForm.roomTypeName} 
+                    onChange={e => setOptionForm(f => ({ ...f, roomTypeName: e.target.value }))} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Type ID *</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Enter room type id..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    value={optionForm.roomTypeId}
+                    onChange={e => setOptionForm(f => ({ ...f, roomTypeId: e.target.value }))}
+                  />
+                </div>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type ID *</label>
-                <input
-                  type="number"
-                  required
-                  placeholder="Enter room type id..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  value={optionForm.roomTypeId}
-                  onChange={e => setOptionForm(f => ({ ...f, roomTypeId: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">NextU Service *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">NextU Service *</label>
                 <select
                   required
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
                   value={optionForm.nextUServiceId}
                   onChange={e => setOptionForm(f => ({ ...f, nextUServiceId: e.target.value }))}
                 >
@@ -605,53 +939,56 @@ export default function AdminRoomDashboard() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Capacity *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Capacity *</label>
                   <input 
                     type="number" 
                     min={1} 
                     required 
                     placeholder="Number of people" 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
                     value={optionForm.capacity} 
                     onChange={e => setOptionForm(f => ({ ...f, capacity: Number(e.target.value) }))} 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Price per Night *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Price per Unit *</label>
                   <input 
                     type="number" 
                     min={0} 
                     required 
-                    placeholder="USD" 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                    placeholder="VND" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
                     value={optionForm.pricePerNight} 
                     onChange={e => setOptionForm(f => ({ ...f, pricePerNight: Number(e.target.value) }))} 
                   />
                 </div>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description</label>
                 <textarea 
                   placeholder="Detailed description of the room type..." 
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none" 
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none" 
                   value={optionForm.description} 
                   onChange={e => setOptionForm(f => ({ ...f, description: e.target.value }))} 
                 />
               </div>
-              <div className="flex gap-3 pt-4">
+              
+              <div className="flex gap-3 pt-2">
                 <button 
                   type="button" 
-                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 hover:bg-gray-200 font-medium transition-all duration-200" 
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200 font-medium transition-all duration-200" 
                   onClick={() => setShowOptionModal(false)}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-3 hover:bg-blue-700 font-medium transition-all duration-200 shadow-md"
+                  className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 font-medium transition-all duration-200 shadow-md"
                 >
                   Create Room Type
                 </button>
@@ -661,13 +998,13 @@ export default function AdminRoomDashboard() {
 
           {/* Add Room Modal */}
           <Modal open={showRoomModal} title="Add New Room" onClose={() => setShowRoomModal(false)}>
-            <form className="space-y-6" onSubmit={handleCreateRoom}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <form className="space-y-3 p-5" onSubmit={handleCreateRoom}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Type *</label>
                   <select 
                     required 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
                     value={roomForm.accommodationOptionId} 
                     onChange={e => setRoomForm(f => ({ ...f, accommodationOptionId: e.target.value }))}
                   >
@@ -681,49 +1018,49 @@ export default function AdminRoomDashboard() {
                     const selected = options.find(opt => opt.id === roomForm.accommodationOptionId);
                     if (!selected) return null;
                     return (
-                      <div className="mt-2 text-sm text-gray-500">Price per night: <span className="font-semibold text-green-700">{selected.pricePerNight?.toLocaleString()} VND</span></div>
+                      <div className="mt-1.5 text-sm text-gray-500">Price per night: <span className="font-semibold text-green-700">{selected.pricePerNight?.toLocaleString()} VND</span></div>
                     );
                   })()}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Room Code *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Code *</label>
                   <input 
                     type="text" 
                     required 
                     placeholder="e.g., A101" 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
                     value={roomForm.roomCode} 
                     onChange={e => setRoomForm(f => ({ ...f, roomCode: e.target.value }))} 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Room Name *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Name *</label>
                   <input 
                     type="text" 
                     required 
                     placeholder="Enter room name..." 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
                     value={roomForm.roomName} 
                     onChange={e => setRoomForm(f => ({ ...f, roomName: e.target.value }))} 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Area (m²) *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Area (m²) *</label>
                   <input 
                     type="number" 
                     min={0} 
                     required 
                     placeholder="e.g., 80" 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
                     value={roomForm.areaInSquareMeters} 
                     onChange={e => setRoomForm(f => ({ ...f, areaInSquareMeters: Number(e.target.value) }))} 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Room Size *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Size *</label>
                   <select 
                     required 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
                     value={roomForm.roomSizeOptionId} 
                     onChange={e => setRoomForm(f => ({ ...f, roomSizeOptionId: Number(e.target.value) }))}
                   >
@@ -734,10 +1071,10 @@ export default function AdminRoomDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Room View *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room View *</label>
                   <select 
                     required 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
                     value={roomForm.roomViewOptionId} 
                     onChange={e => setRoomForm(f => ({ ...f, roomViewOptionId: Number(e.target.value) }))}
                   >
@@ -748,10 +1085,10 @@ export default function AdminRoomDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Room Floor *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Floor *</label>
                   <select 
                     required 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
                     value={roomForm.roomFloorOptionId} 
                     onChange={e => setRoomForm(f => ({ ...f, roomFloorOptionId: Number(e.target.value) }))}
                   >
@@ -762,10 +1099,10 @@ export default function AdminRoomDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Bed Type *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bed Type *</label>
                   <select 
                     required 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
                     value={roomForm.bedTypeOptionId} 
                     onChange={e => setRoomForm(f => ({ ...f, bedTypeOptionId: Number(e.target.value) }))}
                   >
@@ -776,29 +1113,29 @@ export default function AdminRoomDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Beds *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Number of Beds *</label>
                   <input 
                     type="number" 
                     min={0} 
                     required 
                     placeholder="e.g., 2" 
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
                     value={roomForm.numberOfBeds} 
                     onChange={e => setRoomForm(f => ({ ...f, numberOfBeds: Number(e.target.value) }))} 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Add-on Fee</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Add-on Fee</label>
                   <input 
                     type="text"
                     placeholder="e.g., 20000 or Negotiable"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
                     value={roomForm.addOnFee}
                     onChange={e => setRoomForm(f => ({ ...f, addOnFee: e.target.value }))}
                   />
                   {/* Show add-on fee per night */}
                   {roomForm.addOnFee && (
-                    <div className="mt-2 text-sm text-green-700">
+                    <div className="mt-1.5 text-sm text-green-700">
                       Add-on fee per night: {isNaN(Number(roomForm.addOnFee))
                         ? roomForm.addOnFee
                         : Number(roomForm.addOnFee).toLocaleString() + ' VND'}
@@ -812,36 +1149,167 @@ export default function AdminRoomDashboard() {
                     const isAddOnFeeNumber = !isNaN(addOnFeeNum);
                     const finalPrice = isAddOnFeeNumber ? selected.pricePerNight + addOnFeeNum : selected.pricePerNight;
                     return (
-                      <div className="mt-2 text-sm text-blue-700 font-semibold">
+                      <div className="mt-1.5 text-sm text-blue-700 font-semibold">
                         Final price per night: {finalPrice.toLocaleString()} VND
                       </div>
                     );
                   })()}
                 </div>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Detailed Description</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Detailed Description</label>
                 <textarea 
                   placeholder="Detailed description of the room..." 
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 resize-none" 
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 resize-none" 
                   value={roomForm.descriptionDetails} 
                   onChange={e => setRoomForm(f => ({ ...f, descriptionDetails: e.target.value }))} 
                 />
               </div>
-              <div className="flex gap-3 pt-4">
+              
+              <div className="flex gap-3 pt-2">
                 <button 
                   type="button" 
-                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 hover:bg-gray-200 font-medium transition-all duration-200" 
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200 font-medium transition-all duration-200" 
                   onClick={() => setShowRoomModal(false)}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 bg-green-600 text-white rounded-lg px-4 py-3 hover:bg-green-700 font-medium transition-all duration-200 shadow-md"
+                  className="flex-1 bg-green-600 text-white rounded-lg px-4 py-2 hover:bg-green-700 font-medium transition-all duration-200 shadow-md"
                 >
                   Create Room
+                </button>
+              </div>
+            </form>
+          </Modal>
+
+          {/* Add NextU Service Modal */}
+          <Modal open={showNextUServiceModal} title="Add New NextU Service" onClose={() => setShowNextUServiceModal(false)}>
+            <form className="space-y-3 p-5" onSubmit={handleCreateNextUService}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Service Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Enter service name..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200" 
+                    value={nextUServiceForm.name} 
+                    onChange={e => setNextUServiceForm(f => ({ ...f, name: e.target.value }))} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Service Type *</label>
+                  <select
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white"
+                    value={nextUServiceForm.serviceType}
+                    onChange={e => setNextUServiceForm(f => ({ ...f, serviceType: Number(e.target.value) }))}
+                  >
+                    <option value={1}>1 - Accommodation</option>
+                    <option value={2}>2 - Other Service</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Ecosystem ID *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Enter ecosystem ID..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200" 
+                    value={nextUServiceForm.ecosystemId} 
+                    onChange={e => setNextUServiceForm(f => ({ ...f, ecosystemId: e.target.value }))} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Property ID *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Enter property ID..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200" 
+                    value={nextUServiceForm.propertyId} 
+                    onChange={e => setNextUServiceForm(f => ({ ...f, propertyId: e.target.value }))} 
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200 font-medium transition-all duration-200" 
+                  onClick={() => setShowNextUServiceModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 bg-purple-600 text-white rounded-lg px-4 py-2 hover:bg-purple-700 font-medium transition-all duration-200 shadow-md"
+                >
+                  Create Service
+                </button>
+              </div>
+            </form>
+          </Modal>
+
+          {/* Add Ecosystem Modal */}
+          <Modal open={showEcosystemModal} title="Add New Ecosystem" onClose={() => setShowEcosystemModal(false)}>
+            <form className="space-y-3 p-5" onSubmit={handleCreateEcosystem}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Code *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g., CO-LV" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200" 
+                    value={ecosystemForm.code} 
+                    onChange={e => setEcosystemForm(f => ({ ...f, code: e.target.value }))} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g., Co-living" 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200" 
+                    value={ecosystemForm.name} 
+                    onChange={e => setEcosystemForm(f => ({ ...f, name: e.target.value }))} 
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description</label>
+                <textarea 
+                  placeholder="Enter ecosystem description..." 
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 resize-none" 
+                  value={ecosystemForm.description} 
+                  onChange={e => setEcosystemForm(f => ({ ...f, description: e.target.value }))} 
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200 font-medium transition-all duration-200" 
+                  onClick={() => setShowEcosystemModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 bg-emerald-600 text-white rounded-lg px-4 py-2 hover:bg-emerald-700 font-medium transition-all duration-200 shadow-md"
+                >
+                  Create Ecosystem
                 </button>
               </div>
             </form>
@@ -855,143 +1323,143 @@ export default function AdminRoomDashboard() {
                 <p className="text-gray-600">Loading room details...</p>
               </div>
             ) : roomDetail ? (
-                             <div className="flex h-[calc(98vh-80px)]">
+                             <div className="flex h-[calc(95vh-120px)]">
                 {/* Left Column - Fixed Image Gallery */}
-                <div className="w-1/2 p-8 pr-4 flex flex-col">
+                <div className="w-2/5 p-4 pr-2 flex flex-col">
                   {roomDetail.medias && roomDetail.medias.length > 0 ? (
-                    <div className="space-y-4">
-                                                                    {/* Main Image Display with Drag Support */}
-                        <div className="relative">
+                    <div className="space-y-3">
+                      {/* Main Image Display with Drag Support */}
+                      <div className="relative">
+                        <div 
+                          className="aspect-[4/3] overflow-hidden bg-gray-50 cursor-grab active:cursor-grabbing rounded-lg"
+                          onMouseDown={handleMouseDown}
+                          onMouseMove={handleMouseMove}
+                          onMouseUp={handleMouseUp}
+                          onMouseLeave={handleMouseUp}
+                          onTouchStart={handleTouchStart}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={handleTouchEnd}
+                        >
                           <div 
-                            className="aspect-[4/3] overflow-hidden bg-gray-50 cursor-grab active:cursor-grabbing"
-                            onMouseDown={handleMouseDown}
-                            onMouseMove={handleMouseMove}
-                            onMouseUp={handleMouseUp}
-                            onMouseLeave={handleMouseUp}
-                            onTouchStart={handleTouchStart}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
+                            className="relative h-full w-full flex transition-transform duration-300 ease-out"
+                            style={{
+                              transform: `translateX(calc(-${currentImageIndex * 100}% + ${dragOffset}px))`,
+                              width: `${roomDetail.medias.length * 100}%`
+                            }}
                           >
-                                                         <div 
-                               className="relative h-full w-full flex transition-transform duration-300 ease-out"
-                               style={{
-                                 transform: `translateX(calc(-${currentImageIndex * 100}% + ${dragOffset}px))`,
-                                 width: `${roomDetail.medias.length * 100}%`
-                               }}
-                             >
-                              {roomDetail.medias.map((media: Media, index: number) => (
-                                <div key={media.id} className="w-full h-full flex-shrink-0">
-                                  <img
-                                    src={media.url}
-                                    alt={media.description || `Room image ${index + 1}`}
-                                    className="h-full w-full object-cover"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0IDg5LjU0NCA4MCAxMDAgODBDMTEwLjQ1NiA4MCAxMjAgODkuNTQ0IDEyMCAxMDBDMTIwIDExMC40NTYgMTEwLjQ1NiAxMjAgMTAwIDEyMEM4OS41NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iIzlCOUJBMCIvPjxwYXRoIGQ9Ik0xMDAgMTMwQzExMC40NTYgMTMwIDEyMCAxMjAuNDU2IDEyMCAxMTBDMTIwIDk5LjU0NCAxMTAuNDU2IDkwIDEwMCA5MEM4OS41NDQgOTAgODAgOTkuNTQ0IDgwIDExMEM4MCAxMjAuNDU2IDg5LjU0NCAxMzAgMTAwIDEzMFoiIGZpbGw9IiM5QjlCQTAiLz4KPC9zdmc+';
-                                    }}
-                                  />
-                                </div>
-                              ))}
-                            </div>
+                            {roomDetail.medias.map((media: Media, index: number) => (
+                              <div key={media.id} className="w-full h-full flex-shrink-0">
+                                <img
+                                  src={media.url}
+                                  alt={media.description || `Room image ${index + 1}`}
+                                  className="h-full w-full object-cover rounded-lg"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0IDg5LjU0NCA4MCAxMDAgODBDMTEwLjQ1NiA4MCAxMjAgODkuNTQ0IDEyMCAxMDBDMTIwIDExMC40NTYgMTEwLjQ1NiAxMjAgMTAwIDEyMEM4OS41NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iIzlCOUJBMCIvPjxwYXRoIGQ9Ik0xMDAgMTMwQzExMC40NTYgMTMwIDEyMCAxMjAuNDU2IDEyMCAxMTBDMTIwIDk5LjU0NCAxMTAuNDU2IDkwIDEwMCA5MEM4OS41NDQgOTAgODAgOTkuNTQ0IDgwIDExMEM4MCAxMjAuNDU2IDg5LjU0NCAxMzAgMTAwIDEzMFoiIGZpbGw9IiM5QjlCQTAiLz4KPC9zdmc+';
+                                  }}
+                                />
+                              </div>
+                            ))}
                           </div>
-                         
-                         {/* Navigation Arrows */}
-                         {roomDetail.medias.length > 1 && (
-                           <>
-                             <button 
-                               onClick={prevImage}
-                               className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 shadow-lg transition-all duration-200 hover:scale-110"
-                             >
-                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                               </svg>
-                             </button>
-                             <button 
-                               onClick={nextImage}
-                               className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 shadow-lg transition-all duration-200 hover:scale-110"
-                             >
-                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                               </svg>
-                             </button>
-                           </>
-                         )}
-                         
-                         {/* Image Counter */}
-                         {roomDetail.medias.length > 1 && (
-                           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1">
-                             {currentImageIndex + 1}/{roomDetail.medias.length}
-                           </div>
-                         )}
-                       </div>
+                        </div>
+                        
+                        {/* Navigation Arrows */}
+                        {roomDetail.medias.length > 1 && (
+                          <>
+                            <button 
+                              onClick={prevImage}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-1.5 shadow-lg transition-all duration-200 hover:scale-110 rounded-lg"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                              </svg>
+                            </button>
+                            <button 
+                              onClick={nextImage}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-1.5 shadow-lg transition-all duration-200 hover:scale-110 rounded-lg"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
+                        
+                        {/* Image Counter */}
+                        {roomDetail.medias.length > 1 && (
+                          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                            {currentImageIndex + 1}/{roomDetail.medias.length}
+                          </div>
+                        )}
+                      </div>
 
-                                             {/* Thumbnail Navigation */}
-                       {roomDetail.medias.length > 1 && (
-                         <div className="flex space-x-2 overflow-x-auto pb-2">
-                           {roomDetail.medias.slice(0, 4).map((media: Media, index: number) => (
-                             <div key={media.id} className="flex-shrink-0">
-                               <div 
-                                 onClick={() => goToImage(index)}
-                                 className={`w-16 h-12 overflow-hidden border-2 transition-all duration-300 ease-in-out cursor-pointer transform hover:scale-105 ${
-                                   currentImageIndex === index 
-                                     ? 'border-blue-500 ring-2 ring-blue-200 shadow-lg' 
-                                     : 'border-gray-200 hover:border-blue-400'
-                                 }`}
-                               >
-                                 <img
-                                   src={media.url}
-                                   alt={media.description || `Thumbnail ${index + 1}`}
-                                   className="h-full w-full object-cover transition-transform duration-300 hover:scale-110"
-                                   onError={(e) => {
-                                     const target = e.target as HTMLImageElement;
-                                     target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0IDg5LjU0NCA4MCAxMDAgODBDMTEwLjQ1NiA4MCAxMjAgODkuNTQ0IDEyMCAxMDBDMTIwIDExMC40NTYgMTEwLjQ1NiAxMjAgMTAwIDEyMEM4OS41NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iIzlCOUJBMCIvPjxwYXRoIGQ9Ik0xMDAgMTMwQzExMC40NTYgMTMwIDEyMCAxMjAuNDU2IDEyMCAxMTBDMTIwIDk5LjU0NCAxMTAuNDU2IDkwIDEwMCA5MEM4OS41NDQgOTAgODAgOTkuNTQ0IDgwIDExMEM4MCAxMjAuNDU2IDg5LjU0NCAxMzAgMTAwIDEzMFoiIGZpbGw9IiM5QjlCQTAiLz4KPC9zdmc+';
-                                   }}
-                                 />
-                               </div>
-                             </div>
-                           ))}
-                           {roomDetail.medias.length > 4 && (
-                             <div className="flex-shrink-0 w-16 h-12 bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium">
-                               +{roomDetail.medias.length - 4}
-                             </div>
-                           )}
-                         </div>
-                       )}
+                      {/* Thumbnail Navigation */}
+                      {roomDetail.medias.length > 1 && (
+                        <div className="flex space-x-2 overflow-x-auto pb-1">
+                          {roomDetail.medias.slice(0, 4).map((media: Media, index: number) => (
+                            <div key={media.id} className="flex-shrink-0">
+                              <div 
+                                onClick={() => goToImage(index)}
+                                className={`w-12 h-9 overflow-hidden border-2 transition-all duration-300 ease-in-out cursor-pointer transform hover:scale-105 rounded ${
+                                  currentImageIndex === index 
+                                    ? 'border-blue-500 ring-2 ring-blue-200 shadow-lg' 
+                                    : 'border-gray-200 hover:border-blue-400'
+                                }`}
+                              >
+                                <img
+                                  src={media.url}
+                                  alt={media.description || `Thumbnail ${index + 1}`}
+                                  className="h-full w-full object-cover transition-transform duration-300 hover:scale-110"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0IDg5LjU0NCA4MCAxMDAgODBDMTEwLjQ1NiA4MCAxMjAgODkuNTQ0IDEyMCAxMDBDMTIwIDExMC40NTYgMTEwLjQ1NiAxMjAgMTAwIDEyMEM4OS41NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iIzlCOUJBMCIvPjxwYXRoIGQ9Ik0xMDAgMTMwQzExMC40NTYgMTMwIDEyMCAxMjAuNDU2IDEyMCAxMTBDMTIwIDk5LjU0NCAxMTAuNDU2IDkwIDEwMCA5MEM4OS41NDQgOTAgODAgOTkuNTQ0IDgwIDExMEM4MCAxMjAuNDU2IDg5LjU0NCAxMzAgMTAwIDEzMFoiIGZpbGw9IiM5QjlCQTAiLz4KPC9zdmc+';
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                          {roomDetail.medias.length > 4 && (
+                            <div className="flex-shrink-0 w-12 h-9 bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium rounded">
+                              +{roomDetail.medias.length - 4}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-gray-50 border-2 border-dashed border-gray-300">
-                      <div className="text-gray-400 mb-3">
-                        <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+                      <div className="text-gray-400 mb-2">
+                        <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
-                      <p className="text-gray-500 text-sm">No images available for this room</p>
+                      <p className="text-gray-500 text-xs">No images available</p>
                     </div>
                   )}
 
-                  {/* Upload Image Button */}
-                  <div className="mt-6">
+                  {/* Upload Image Button - Fixed at bottom of left column */}
+                  <div className="mt-auto pt-4">
                     <button
                       onClick={() => setShowUploadModal(true)}
-                      className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
-                      Upload New Image
+                      Upload Image
                     </button>
                   </div>
                 </div>
 
                 {/* Right Column - Content & Fixed Pricing */}
-                <div className="w-1/2 flex flex-col">
+                <div className="w-3/5 flex flex-col">
                   {/* Scrollable Content Area */}
-                  <div className="flex-1 overflow-y-auto p-8 pl-4">
-                    {/* Room Header - Horizontal Layout */}
-                    <div className="mb-6">
+                  <div className="flex-1 overflow-y-auto p-4 pl-2">
+                    {/* Room Header - Compact Layout */}
+                    <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-2xl font-bold text-gray-900">{roomDetail.roomName}</h2>
-                        <span className={`inline-flex items-center px-3 py-1 text-sm font-medium ${
+                        <h2 className="text-xl font-bold text-gray-900">{roomDetail.roomName}</h2>
+                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${
                           roomDetail.status === 'Available' ? 'bg-green-100 text-green-800' : 
                           roomDetail.status === 'Occupied' ? 'bg-red-100 text-red-800' : 
                           'bg-yellow-100 text-yellow-800'
@@ -999,30 +1467,24 @@ export default function AdminRoomDashboard() {
                           {roomDetail.status}
                         </span>
                       </div>
-                      <p className="text-gray-600">{roomDetail.roomTypeName}</p>
+                      <p className="text-gray-600 text-sm">{roomDetail.roomTypeName}</p>
                     </div>
 
-                    {/* Horizontal Divider */}
-                    <div className="border-b border-gray-200 mb-6"></div>
-
-                    {/* Description - Moved to top with larger text */}
+                    {/* Description - Compact */}
                     {roomDetail.descriptionDetails && (
-                      <div className="mb-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-3">Description</h4>
-                        <div className="bg-gray-50 p-4">
-                          <p className="text-gray-700 leading-relaxed text-base">{roomDetail.descriptionDetails}</p>
+                      <div className="mb-4">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-1">Description</h4>
+                        <div className="bg-gray-50 p-2 rounded text-sm">
+                          <p className="text-gray-700">{roomDetail.descriptionDetails}</p>
                         </div>
                       </div>
                     )}
 
-                    {/* Horizontal Divider */}
-                    <div className="border-b border-gray-200 mb-6"></div>
-
-                    {/* Quick Details */}
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                      <div className="flex items-center space-x-3 p-3 bg-gray-50">
-                        <div className="w-8 h-8 bg-blue-100 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {/* Quick Details - Compact Grid */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                        <div className="w-6 h-6 bg-blue-100 flex items-center justify-center rounded">
+                          <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
                           </svg>
                         </div>
@@ -1031,9 +1493,9 @@ export default function AdminRoomDashboard() {
                           <p className="text-sm font-medium text-gray-900">{roomDetail.bedTypeName}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3 p-3 bg-gray-50">
-                        <div className="w-8 h-8 bg-green-100 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                        <div className="w-6 h-6 bg-green-100 flex items-center justify-center rounded">
+                          <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                         </div>
@@ -1044,13 +1506,10 @@ export default function AdminRoomDashboard() {
                       </div>
                     </div>
 
-                    {/* Horizontal Divider */}
-                    <div className="border-b border-gray-200 mb-6"></div>
-
-                    {/* Room Specifications - Restructured */}
-                    <div className="mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Room Specifications</h4>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    {/* Room Specifications - Compact */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Room Specifications</h4>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                         <div className="flex justify-between py-1 border-b border-gray-100">
                           <span className="text-gray-600">Area:</span>
                           <span className="font-medium text-gray-900">{roomDetail.areaInSquareMeters} m²</span>
@@ -1067,36 +1526,25 @@ export default function AdminRoomDashboard() {
                           <span className="text-gray-600">Floor:</span>
                           <span className="font-medium text-gray-900">{roomDetail.roomFloorName}</span>
                         </div>
-                        <div className="flex justify-between py-1 border-b border-gray-100">
-                          <span className="text-gray-600">Bed Type:</span>
-                          <span className="font-medium text-gray-900">{roomDetail.bedTypeName}</span>
-                        </div>
-                        <div className="flex justify-between py-1 border-b border-gray-100">
-                          <span className="text-gray-600">Number of Beds:</span>
-                          <span className="font-medium text-gray-900">{roomDetail.numberOfBeds}</span>
-                        </div>
                       </div>
                     </div>
 
-                    {/* Horizontal Divider */}
-                    <div className="border-b border-gray-200 mb-6"></div>
-
-                    {/* Location */}
-                    <div className="mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Location</h4>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2 text-sm">
-                          <div className="w-2 h-2 bg-blue-500"></div>
+                    {/* Location - Compact */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Location</h4>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded"></div>
                           <span className="text-gray-600">City:</span>
                           <span className="font-medium text-gray-900">{roomDetail.cityName}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-sm">
-                          <div className="w-2 h-2 bg-green-500"></div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded"></div>
                           <span className="text-gray-600">Location:</span>
                           <span className="font-medium text-gray-900">{roomDetail.locationName}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-sm">
-                          <div className="w-2 h-2 bg-purple-500"></div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-purple-500 rounded"></div>
                           <span className="text-gray-600">Property:</span>
                           <span className="font-medium text-gray-900">{roomDetail.propertyName}</span>
                         </div>
@@ -1104,34 +1552,37 @@ export default function AdminRoomDashboard() {
                     </div>
                   </div>
 
-                  {/* Fixed Pricing Section at Bottom */}
-                  <div className="border-t border-gray-200 p-8 pl-4 bg-gray-50 flex-shrink-0">
-                    <div className="space-y-3">
-                      <h4 className="text-lg font-semibold text-gray-900">Pricing Details</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">Base Price:</span>
-                          <span className="font-medium text-gray-900">{getTypePrice(roomDetail.accommodationOptionId)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">Add-on Fee:</span>
-                          <span className="font-medium text-gray-900">
-                            {Number(roomDetail.addOnFee).toLocaleString()} VND
-                          </span>
-                        </div>
-                        <div className="pt-2 border-t border-gray-300">
+                  {/* Fixed Bottom Section - Pricing & Upload Button */}
+                  <div className="border-t border-gray-200 p-4 bg-gray-50 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      {/* Pricing Details */}
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-2">Pricing Details</h4>
+                        <div className="space-y-1 text-xs">
                           <div className="flex justify-between items-center">
-                            <span className="text-lg font-bold text-gray-900">Total Price</span>
-                            <div className="text-right">
-                              <span className="text-2xl font-bold text-orange-600">
-                                {(() => {
-                                  const typePrice = options.find(o => o.id === roomDetail.accommodationOptionId)?.pricePerNight || 0;
-                                  const addOn = Number(roomDetail.addOnFee) || 0;
-                                  return (typePrice + addOn).toLocaleString();
-                                })()}
-                              </span>
-                              <span className="text-lg text-orange-600"> VND / Night</span>
-                              <p className="text-xs text-gray-500">Tax and fees included</p>
+                            <span className="text-gray-600">Base Price:</span>
+                            <span className="font-medium text-gray-900">{getTypePrice(roomDetail.accommodationOptionId)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Add-on Fee:</span>
+                            <span className="font-medium text-gray-900">
+                              {Number(roomDetail.addOnFee).toLocaleString()} VND
+                            </span>
+                          </div>
+                          <div className="pt-1 border-t border-gray-300">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-bold text-gray-900">Total Price</span>
+                              <div className="text-right">
+                                <span className="text-lg font-bold text-orange-600">
+                                  {(() => {
+                                    const typePrice = options.find(o => o.id === roomDetail.accommodationOptionId)?.pricePerNight || 0;
+                                    const addOn = Number(roomDetail.addOnFee) || 0;
+                                    return (typePrice + addOn).toLocaleString();
+                                  })()}
+                                </span>
+                                <span className="text-sm text-orange-600"> VND / Night</span>
+                                <p className="text-xs text-gray-500">Tax and fees included</p>
+                              </div>
                             </div>
                           </div>
                         </div>

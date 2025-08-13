@@ -28,7 +28,7 @@ const roles = [
   {
     name: "Admin",
     description: "Regional management - Create staff and partner accounts",
-    href: "/internal/admin",
+    href: "/admin",
     icon: Settings,
     color: "bg-blue-500",
     permissions: ["Create staff accounts", "Create partner accounts", "Regional oversight"],
@@ -86,11 +86,11 @@ export default function DashboardSelector() {
       // Only SuperAdmin should access this page
       if (user.role !== "SuperAdmin") {
         const roleRoutes = {
-          Admin: "/internal/admin",
-          Manager: "/internal/manager",
-          Staff_Membership: "/internal/staff-membership",
-          Staff_Services: "/internal/staff-services",
-          Staff_Content: "/internal/staff-content",
+          Admin: "/admin",
+          Manager: "/manager",
+          Staff_Membership: "/staff-onboarding",
+          Staff_Services: "/staff-services",
+          Staff_Content: "/staff-content",
         }
 
         const redirectPath = roleRoutes[user.role as keyof typeof roleRoutes]

@@ -92,28 +92,6 @@ interface EventApprovalStats {
   totalRevenue: number
 }
 
-// Mock data for categories and levels (you can replace with real API calls later)
-const mockCategories = {
-  1: "Wellness",
-  2: "Art", 
-  3: "Technology",
-  4: "Business",
-  5: "Education",
-  6: "Sports",
-  7: "Music",
-  8: "Food",
-  9: "Travel",
-  10: "Other"
-}
-
-const mockLevels = {
-  1: "Beginner",
-  2: "Intermediate", 
-  3: "Advanced",
-  4: "Expert",
-  5: "All Levels"
-}
-
 // Utility functions để parse JSON strings (tương tự EventManagementPage)
 const parseNotes = (notes: string | null): string[] => {
   if (!notes) return []
@@ -189,6 +167,11 @@ const parseInstructor = (instructorName: string | null): {name: string; experien
   return { name: '' }
 }
 
+// Helper function to get user initials for avatar
+const getUserInitials = (name: string) => {
+  return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'A'
+}
+
 function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: React.ReactNode; onClose: () => void }) {
   if (!open) return null
   return (
@@ -209,16 +192,6 @@ function Modal({ open, title, children, onClose }: { open: boolean; title: strin
   )
 }
 
-const mockUser: User = {
-  id: "2",
-  name: "Jane Smith",
-  email: "jane@nextu.com",
-  role: "Admin",
-  location: "San Francisco, CA",
-  region: "West Coast",
-  avatar: "/placeholder.svg?height=32&width=32",
-}
-
 export default function EventApprovalDashboard() {
   const [events, setEvents] = useState<PendingEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -229,9 +202,54 @@ export default function EventApprovalDashboard() {
   const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | null>(null)
   const [rejectionReason, setRejectionReason] = useState("")
   const [toast, setToast] = useState("")
+  
+  // User state from localStorage
+  const [user, setUser] = useState<{
+    id: string
+    name: string
+    email: string
+    role: string
+    location: string
+    property_name: string
+    region: string
+    avatar: string
+  }>({
+    id: "",
+    name: "",
+    email: "",
+    role: "",
+    location: "",
+    property_name: "",
+    region: "West Coast",
+    avatar: ""
+  })
 
   // Get navigation for admin role
   const navigation = getNavigationForRole("admin", "/admin/event-approval")
+
+  // Get user info from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("nextu_internal_user")
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr)
+          setUser({
+            id: userObj.user_id || "",
+            name: userObj.name || "",
+            email: userObj.email || "",
+            role: userObj.role || "",
+            location: userObj.property_name || "",
+            property_name: userObj.property_name || "",
+            region: "West Coast",
+            avatar: getUserInitials(userObj.name || "")
+          })
+        } catch (error) {
+          console.error("Error parsing user data:", error)
+        }
+      }
+    }
+  }, [])
 
   // Fetch events from API
   const fetchEvents = async () => {
@@ -418,8 +436,8 @@ export default function EventApprovalDashboard() {
   const eventRows = events.map(event => {
     return {
       ...event,
-      categoryName: event.categoryName || mockCategories[event.categoryId as keyof typeof mockCategories] || "Unknown",
-      levelName: event.levelName || mockLevels[event.levelId as keyof typeof mockLevels] || "Unknown",
+      categoryName: event.categoryName || "Unknown",
+      levelName: event.levelName || "Unknown",
       status: getStatusBadge(event.status)
     }
   })
@@ -427,9 +445,10 @@ export default function EventApprovalDashboard() {
   if (loading) {
     return (
       <RoleLayout>
-        <Sidebar navigation={navigation} title="Next U" userRole="Regional Admin" />
+             <Sidebar navigation={navigation} title="Next U" userRole="Admin" />
+
         <div className="lg:pl-64 flex flex-col flex-1 bg-gray-50 min-h-screen">
-          <TopNav user={mockUser} title="Event Approval Management" />
+          <TopNav user={user} title="Event Approval Management" />
           <main className="flex-1 p-4 lg:p-6 xl:p-8 overflow-y-auto">
             <div className="flex items-center justify-center h-64">
               <div className="text-gray-500">Loading events...</div>
@@ -442,17 +461,15 @@ export default function EventApprovalDashboard() {
 
   return (
     <RoleLayout>
-      <Sidebar navigation={navigation} title="Next U" userRole="Regional Admin" />
+            <Sidebar navigation={navigation} title="Next U" userRole="Admin" />
+
       
       <div className="lg:pl-64 flex flex-col flex-1 bg-gray-50 min-h-screen">
-        <TopNav user={mockUser} title="Event Approval Management" />
+        <TopNav user={user} title="Event Approval Management" />
         
         <main className="flex-1 p-4 lg:p-6 xl:p-8 overflow-y-auto">
           {/* Header Section */}
-          <div className="mb-6 lg:mb-8">
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Event Approval Management</h1>
-            <p className="text-gray-600">Review and approve event submissions from staff content team</p>
-          </div>
+        
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">

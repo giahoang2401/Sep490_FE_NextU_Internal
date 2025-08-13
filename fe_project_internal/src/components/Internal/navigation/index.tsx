@@ -18,22 +18,18 @@ import {
   BarChart3
 } from "lucide-react"
 import type { NavigationItem } from "../types"
+import { superAdminNavigation } from "../super-admin/superAdminNavigation"
 
 // Navigation cho từng role
 export const roleNavigations = {
-  super_admin: [
-    { name: "Dashboard", href: "/super-admin", icon: Home },
-    { name: "User Management", href: "/super-admin/users", icon: Users },
-    { name: "System Settings", href: "/super-admin/settings", icon: Settings },
-    { name: "Analytics", href: "/super-admin/analytics", icon: BarChart3 },
-  ],
+  super_admin: superAdminNavigation,
   
   admin: [
     { name: "Dashboard", href: "/admin", icon: Home },
     { name: "Room Management", href: "/admin/rooms", icon: Building },
     { name: "Event Approval", href: "/admin/event-approval", icon: Calendar },
-    { name: "User Management", href: "/admin/users", icon: Users },
-    { name: "Reports", href: "/admin/reports", icon: FileText },
+   
+  
   ],
   
   manager: [

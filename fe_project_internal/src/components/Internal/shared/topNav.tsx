@@ -4,6 +4,7 @@ import type { User } from "../types"
 import { Bell, Search, ChevronDown, Settings } from "lucide-react"
 import { logout } from "../../../utils/auth" 
 import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
 
 interface TopNavProps {
   user: User
@@ -13,17 +14,34 @@ interface TopNavProps {
 
 export default function TopNav({ user, title, onSettingsClick }: TopNavProps) {
   const router = useRouter()
+  const [adminName, setAdminName] = useState<string>("")
+  const [adminRole, setAdminRole] = useState<string>("")
+  const [adminPropertyName, setAdminPropertyName] = useState<string>("")
+  
   const handleLogout = async () => {
     await logout()
     router.push("/login")
   }
+
+  useEffect(() => {
+    // Lấy thông tin user từ localStorage
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("nextu_internal_user")
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        setAdminName(user.name || "")
+        setAdminRole(user.role || "")
+        setAdminPropertyName(user.property_name || "")
+      }
+    }
+  }, [])
 
   return (
     <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 lg:text-3xl">{title}</h1>
-          {user.location && <p className="text-sm text-gray-500 mt-1">Location: {user.location}</p>}
+          {adminPropertyName && <p className="text-sm text-gray-500 mt-1">Location: {adminPropertyName}</p>}
         </div>
 
         <div className="flex items-center space-x-4">
@@ -58,12 +76,12 @@ export default function TopNav({ user, title, onSettingsClick }: TopNavProps) {
               <img
                 className="h-8 w-8 rounded-full"
                 src={user.avatar || "/placeholder.svg?height=32&width=32"}
-                alt={user.name}
+                alt={adminName || user.name}
               />
             </div>
             <div className="hidden md:block">
-              <div className="text-sm font-medium text-gray-900">{user.name}</div>
-              <div className="text-xs text-gray-500">{user.role}</div>
+              <div className="text-sm font-medium text-gray-900">{adminName || user.name}</div>
+              <div className="text-xs text-gray-500">{adminRole || user.role}</div>
               <button
                 onClick={handleLogout}
                 className="mt-1 text-xs text-red-500 hover:underline focus:outline-none"
