@@ -48,12 +48,17 @@ function Modal({ open, title, children, onClose }: { open: boolean; title: strin
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div 
         className={`bg-white shadow-2xl w-full overflow-hidden animate-in fade-in-0 zoom-in-95 duration-300 ${
-          isRoomDetailModal ? 'max-w-7xl max-h-[95vh] room-detail-modal' : 'max-w-2xl max-h-[90vh]'
+          isRoomDetailModal ? 'max-w-7xl max-h-[95vh] room-detail-modal' : 
+          title.includes('Upload') ? 'max-w-6xl max-h-[95vh]' : 'max-w-2xl max-h-[90vh]'
         }`}
         style={isRoomDetailModal ? {
           width: '90vw',
           maxWidth: '1400px',
           minWidth: '1200px'
+        } : title.includes('Upload') ? {
+          width: '85vw',
+          maxWidth: '1200px',
+          minWidth: '900px'
         } : {}}
       >
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -149,9 +154,10 @@ export default function AdminRoomDashboard() {
   // Form states for NextUService
   const [nextUServiceForm, setNextUServiceForm] = useState({
     name: "",
-    serviceType: 1,
+    serviceType: 0,
     ecosystemId: "",
-    propertyId: ""
+    propertyId: "",
+    hiddenField: "" // Trường ẩn để lưu trữ thông tin bổ sung
   });
   
   // Form states for Ecosystem
@@ -218,8 +224,8 @@ export default function AdminRoomDashboard() {
   // Image upload state
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadForm, setUploadForm] = useState({
-    file: null as File | null,
-    description: "",
+    files: [] as File[],
+    descriptions: [] as string[],
     type: "image"
   });
   const [uploading, setUploading] = useState(false);
@@ -229,6 +235,9 @@ export default function AdminRoomDashboard() {
   const [dragStart, setDragStart] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragStartTime, setDragStartTime] = useState(0);
+  
+  // Drag and drop state for file upload
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Get user info from localStorage
   useEffect(() => {
@@ -263,6 +272,39 @@ export default function AdminRoomDashboard() {
     fetchEcosystems();
   }, []);
 
+  // Refresh data when tab becomes visible (user returns to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("Tab became visible, refreshing data...");
+        fetchNextUServices();
+        fetchEcosystems();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log("Window focused, refreshing data...");
+      fetchNextUServices();
+      fetchEcosystems();
+    };
+
+    // Thêm interval để refresh dữ liệu định kỳ (mỗi 30 giây)
+    const intervalId = setInterval(() => {
+      console.log("Periodic data refresh...");
+      fetchNextUServices();
+      fetchEcosystems();
+    }, 30000);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(intervalId);
+    };
+  }, []);
+
   // Lấy propertyId từ localStorage khi mở modal tạo Room Type
   useEffect(() => {
     if (showOptionModal) {
@@ -282,6 +324,30 @@ export default function AdminRoomDashboard() {
       setPropertyName(propName);
     }
   }, [showOptionModal]);
+
+  // Lấy propertyId từ localStorage khi mở modal tạo NextU Service
+  useEffect(() => {
+    if (showNextUServiceModal) {
+      let propId = "";
+      if (typeof window !== "undefined") {
+        const userStr = localStorage.getItem("nextu_internal_user");
+        if (userStr) {
+          try {
+            const userObj = JSON.parse(userStr);
+            propId = userObj.location || "";
+          } catch {}
+        }
+      }
+             // Reset form khi mở modal
+       setNextUServiceForm({
+         name: "",
+         serviceType: 0,
+         ecosystemId: "",
+         propertyId: propId,
+         hiddenField: ""
+       });
+    }
+  }, [showNextUServiceModal]);
 
   // Lấy danh sách NextUServices khi mở modal tạo Room Type
   useEffect(() => {
@@ -341,8 +407,27 @@ export default function AdminRoomDashboard() {
     setLoadingNextUServices(true);
     try {
       const res = await api.get("/api/NextUServices");
-      setNextUServices(res.data);
+      console.log("NextUServices API response:", res.data);
+      
+      // Đảm bảo dữ liệu có định dạng đúng và xử lý serviceType
+      const processedData = res.data.map((service: any) => {
+        // Đảm bảo serviceType là số và có giá trị hợp lệ
+        let serviceType = 0;
+        if (service.serviceType !== null && service.serviceType !== undefined) {
+          const parsed = Number(service.serviceType);
+          serviceType = isNaN(parsed) ? 0 : parsed;
+        }
+        
+        return {
+          ...service,
+          serviceType: serviceType
+        };
+      });
+      
+      console.log("Processed NextUServices data:", processedData);
+      setNextUServices(processedData);
     } catch (err) {
+      console.error("Error fetching NextUServices:", err);
       setNextUServices([]);
     } finally {
       setLoadingNextUServices(false);
@@ -362,19 +447,37 @@ export default function AdminRoomDashboard() {
     }
   };
 
+
+
   // Create NextUService
   const handleCreateNextUService = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/api/NextUServices", {
+      // Đảm bảo serviceType là số
+      const serviceType = Number(nextUServiceForm.serviceType);
+      if (isNaN(serviceType)) {
+        setToast("Invalid service type value");
+        return;
+      }
+
+      const requestData = {
         ...nextUServiceForm,
-        serviceType: Number(nextUServiceForm.serviceType),
-      });
+        serviceType: serviceType,
+      };
+
+      console.log("Creating NextU Service with data:", requestData);
+      const response = await api.post("/api/NextUServices", requestData);
+      console.log("NextU Service created successfully:", response.data);
       setToast("NextU Service created successfully!");
-      setNextUServiceForm({ name: "", serviceType: 1, ecosystemId: "", propertyId: "" });
+      
+      // Reset form
+      setNextUServiceForm({ name: "", serviceType: 0, ecosystemId: "", propertyId: "", hiddenField: "" });
       setShowNextUServiceModal(false);
-      fetchNextUServices();
+      
+      // Refresh data
+      await fetchNextUServices();
     } catch (err: any) {
+      console.error("Error creating NextU Service:", err);
       setToast("Creation failed: " + (err.response?.data?.message || err.message));
     }
   };
@@ -578,31 +681,40 @@ export default function AdminRoomDashboard() {
   // Image upload handler
   const handleImageUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadForm.file || !roomDetail) {
-      setToast('Please select an image file first');
+    if (!uploadForm.files.length || !roomDetail) {
+      setToast('Please select at least one image file first');
       return;
     }
 
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('File', uploadForm.file);
+      
+      // Append multiple files
+      uploadForm.files.forEach((file, index) => {
+        formData.append(`Files`, file);
+      });
+      
+      // Append descriptions for each file
+      uploadForm.descriptions.forEach((description, index) => {
+        formData.append('Descriptions', description || `Image ${index + 1}`);
+      });
+      
       formData.append('ActorType', '3'); // Fixed value for rooms
       formData.append('ActorId', roomDetail.id);
-      formData.append('Description', uploadForm.description);
       formData.append('Type', uploadForm.type);
 
-      await api.post('/api/Media/upload', formData, {
+      await api.post('/api/Media/upload-many', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      setToast('Image uploaded successfully!');
-      setUploadForm({ file: null, description: "", type: "image" });
+      setToast(`${uploadForm.files.length} image(s) uploaded successfully!`);
+      setUploadForm({ files: [], descriptions: [], type: "image" });
       setShowUploadModal(false);
       
-      // Refresh room details to show new image
+      // Refresh room details to show new images
       if (roomDetail) {
         const res = await api.get(`/api/membership/RoomInstances/${roomDetail.id}`);
         setRoomDetail(res.data);
@@ -690,6 +802,8 @@ export default function AdminRoomDashboard() {
             />
           </div>
 
+
+
           {/* Main Content Grid - 2x2 Layout */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-[calc(100vh-300px)]">
             
@@ -765,23 +879,37 @@ export default function AdminRoomDashboard() {
                 ) : (
                   <div className="overflow-y-auto h-full">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecosystem</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
-                        </tr>
-                      </thead>
+                                             <thead className="bg-gray-50 sticky top-0">
+                         <tr>
+                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecosystem</th>
+                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                         </tr>
+                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {nextUServices.map((service) => (
-                          <tr key={service.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{service.name}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{service.serviceType}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.ecosystemName}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.propertyName}</td>
-                          </tr>
-                        ))}
+                                                {nextUServices.map((service) => {
+                          // Đảm bảo serviceType là số và có giá trị hợp lệ
+                          const serviceType = typeof service.serviceType === 'number' ? service.serviceType : Number(service.serviceType) || 0;
+                          const isBooking = serviceType === 0;
+                          
+                          // Debug logging
+                          if (process.env.NODE_ENV === 'development') {
+                            console.log(`Service ${service.name}:`, {
+                              original: service.serviceType,
+                              type: typeof service.serviceType,
+                              processed: serviceType,
+                              isBooking: isBooking
+                            });
+                          }
+                         
+                          return (
+                            <tr key={service.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{service.name}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.ecosystemName}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.propertyName}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -934,10 +1062,20 @@ export default function AdminRoomDashboard() {
                   onChange={e => setOptionForm(f => ({ ...f, nextUServiceId: e.target.value }))}
                 >
                   <option value="">-- Select NextU Service --</option>
-                  {nextUServices.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
+                  {nextUServices
+                    .filter(service => {
+                      const ecosystemName = service.ecosystemName?.toLowerCase() || '';
+                      return ecosystemName === 'co-living' || ecosystemName === 'co-working';
+                    })
+                    .map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.ecosystemName})
+                      </option>
+                    ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Only showing services from Co-Living and Co-Working ecosystems
+                </p>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
@@ -1201,60 +1339,67 @@ export default function AdminRoomDashboard() {
                     onChange={e => setNextUServiceForm(f => ({ ...f, name: e.target.value }))} 
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Service Type *</label>
-                  <select
-                    required
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white"
-                    value={nextUServiceForm.serviceType}
-                    onChange={e => setNextUServiceForm(f => ({ ...f, serviceType: Number(e.target.value) }))}
+                                 <div>
+                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Service Type *</label>
+                   <select
+                     required
+                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white"
+                     value={nextUServiceForm.serviceType}
+                     onChange={e => setNextUServiceForm(f => ({ ...f, serviceType: Number(e.target.value) }))}
+                   >
+                     <option value={0}>Booking</option>
+                     <option value={1}>Non-booking</option>
+                   </select>
+                 </div>
+              </div>
+              
+                             <div>
+                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Ecosystem *</label>
+                 <select
+                   required
+                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white"
+                   value={nextUServiceForm.ecosystemId}
+                   onChange={e => setNextUServiceForm(f => ({ ...f, ecosystemId: e.target.value }))}
+                 >
+                   <option value="">-- Select Ecosystem --</option>
+                   {ecosystems.map(ecosystem => (
+                     <option key={ecosystem.id} value={ecosystem.id}>{ecosystem.name}</option>
+                   ))}
+                 </select>
+               </div>
+              
+                             {/* Hidden field for non-booking information */}
+               <input
+                 type="hidden"
+                 value={nextUServiceForm.hiddenField}
+                 onChange={e => setNextUServiceForm(f => ({ ...f, hiddenField: e.target.value }))}
+               />
+               
+               <div className="flex gap-3 pt-2">
+                                  <button 
+                    type="button" 
+                    className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200 font-medium transition-all duration-200" 
+                    onClick={() => {
+                      setShowNextUServiceModal(false);
+                      // Reset form khi đóng modal
+                      setNextUServiceForm({
+                        name: "",
+                        serviceType: 0,
+                        ecosystemId: "",
+                        propertyId: "",
+                        hiddenField: ""
+                      });
+                    }}
                   >
-                    <option value={1}>1 - Accommodation</option>
-                    <option value={2}>2 - Other Service</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Ecosystem ID *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="Enter ecosystem ID..." 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200" 
-                    value={nextUServiceForm.ecosystemId} 
-                    onChange={e => setNextUServiceForm(f => ({ ...f, ecosystemId: e.target.value }))} 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Property ID *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="Enter property ID..." 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200" 
-                    value={nextUServiceForm.propertyId} 
-                    onChange={e => setNextUServiceForm(f => ({ ...f, propertyId: e.target.value }))} 
-                  />
-                </div>
-              </div>
-              
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200 font-medium transition-all duration-200" 
-                  onClick={() => setShowNextUServiceModal(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 bg-purple-600 text-white rounded-lg px-4 py-2 hover:bg-purple-700 font-medium transition-all duration-200 shadow-md"
-                >
-                  Create Service
-                </button>
-              </div>
+                    Cancel
+                  </button>
+                 <button 
+                   type="submit" 
+                   className="flex-1 bg-purple-600 text-white rounded-lg px-4 py-2 hover:bg-purple-700 font-medium transition-all duration-200 shadow-md"
+                 >
+                   Create Service
+                 </button>
+               </div>
             </form>
           </Modal>
 
@@ -1605,8 +1750,8 @@ export default function AdminRoomDashboard() {
           </Modal>
 
           {/* Image Upload Modal */}
-          <Modal open={showUploadModal} title="Upload Room Image" onClose={() => setShowUploadModal(false)}>
-            <div className="max-w-6xl mx-auto">
+          <Modal open={showUploadModal} title={`Upload Room Images ${uploadForm.files.length > 0 ? `(${uploadForm.files.length} selected)` : ''}`} onClose={() => setShowUploadModal(false)}>
+            <div className="max-w-7xl mx-auto">
               <form className="space-y-6" onSubmit={handleImageUpload}>
                 {/* Main Content - Horizontal Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1616,67 +1761,164 @@ export default function AdminRoomDashboard() {
                     {/* File Upload Section */}
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
                       <div className="text-center mb-4">
-                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 relative">
                           <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                           </svg>
+                          {uploadForm.files.length > 0 && (
+                            <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                              {uploadForm.files.length}
+                            </div>
+                          )}
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Upload New Image</h3>
-                        <p className="text-sm text-gray-600">Select an image file to upload</p>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                          {uploadForm.files.length > 0 ? `${uploadForm.files.length} Images Selected` : 'Upload New Images'}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {uploadForm.files.length > 0 ? 'Click to add more images or drag & drop' : 'Select multiple image files to upload'}
+                        </p>
                       </div>
 
-                      <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center hover:border-blue-400 transition-all duration-300 hover:bg-blue-50/50">
+                      <div 
+                        className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${
+                          isDragOver 
+                            ? 'border-blue-500 bg-blue-100/70 scale-105' 
+                            : 'border-blue-300 hover:border-blue-400 hover:bg-blue-50/50'
+                        }`}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                          
+                          const droppedFiles = Array.from(e.dataTransfer.files).filter(
+                            file => file.type.startsWith('image/')
+                          );
+                          
+                          if (droppedFiles.length > 0) {
+                            setUploadForm(prev => ({ 
+                              ...prev, 
+                              files: [...prev.files, ...droppedFiles],
+                              descriptions: [...prev.descriptions, ...new Array(droppedFiles.length).fill("")]
+                            }));
+                          }
+                        }}
+                      >
                         <input
                           type="file"
                           accept="image/*"
+                          multiple
                           onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setUploadForm(prev => ({ ...prev, file }));
+                            const newFiles = Array.from(e.target.files || []);
+                            if (newFiles.length > 0) {
+                              setUploadForm(prev => ({ 
+                                ...prev, 
+                                files: [...prev.files, ...newFiles],
+                                descriptions: [...prev.descriptions, ...new Array(newFiles.length).fill("")]
+                              }));
                             }
                           }}
                           className="hidden"
                           id="image-upload"
                         />
                         <label htmlFor="image-upload" className="cursor-pointer block">
-                          {uploadForm.file ? (
+                          {uploadForm.files.length > 0 ? (
                             <div className="space-y-4">
-                              {/* Compact Image Preview */}
-                              <div className="relative">
-                                <div className="w-full max-w-sm mx-auto">
-                                  <img
-                                    src={URL.createObjectURL(uploadForm.file)}
-                                    alt="Preview"
-                                    className="w-full h-40 object-cover rounded-xl border-2 border-blue-200 shadow-lg"
-                                    onLoad={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.onload = null;
-                                    }}
-                                  />
-                                  {/* Success Badge */}
-                                  <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </div>
+                              {/* Multiple Images Preview */}
+                              <div className="max-w-full mx-auto">
+                                {/* Main preview grid */}
+                                <div className="grid grid-cols-3 gap-3 mb-4">
+                                  {uploadForm.files.slice(0, 6).map((file, index) => (
+                                    <div key={index} className="relative group">
+                                      <img
+                                        src={URL.createObjectURL(file)}
+                                        alt={`Preview ${index + 1}`}
+                                        className="w-full h-24 object-cover rounded-lg border-2 border-blue-200 shadow-md transition-all duration-200 group-hover:scale-105"
+                                        onLoad={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.onload = null;
+                                        }}
+                                      />
+                                      {/* Image number badge */}
+                                      <div className="absolute top-1 left-1 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-lg">
+                                        {index + 1}
+                                      </div>
+                                      {/* Remove button */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          const newFiles = uploadForm.files.filter((_, i) => i !== index);
+                                          const newDescriptions = uploadForm.descriptions.filter((_, i) => i !== index);
+                                          setUploadForm(prev => ({ ...prev, files: newFiles, descriptions: newDescriptions }));
+                                        }}
+                                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                  {uploadForm.files.length > 6 && (
+                                    <div className="w-full h-24 bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-blue-300 rounded-lg flex flex-col items-center justify-center text-blue-700 font-bold text-sm shadow-md">
+                                      <div className="text-lg">+{uploadForm.files.length - 6}</div>
+                                      <div className="text-xs">more images</div>
+                                    </div>
+                                  )}
                                 </div>
+                                
+                                {/* File list summary */}
+                                {uploadForm.files.length > 3 && (
+                                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-blue-200">
+                                    <div className="text-xs text-blue-800 font-medium mb-2">Selected Files:</div>
+                                    <div className="max-h-20 overflow-y-auto space-y-1">
+                                      {uploadForm.files.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between text-xs">
+                                          <span className="text-gray-700 truncate max-w-32">{index + 1}. {file.name}</span>
+                                          <span className="text-gray-500 ml-2">{(file.size / 1024 / 1024).toFixed(1)}MB</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               
-                              {/* Compact File Info */}
-                              <div className="bg-white rounded-lg px-3 py-2 border border-blue-200 inline-block">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                              {/* Summary Stats Card */}
+                              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg px-4 py-3 border border-green-200">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-bold text-green-800">{uploadForm.files.length} Images Ready</p>
+                                      <p className="text-xs text-green-600">
+                                        Total Size: {(uploadForm.files.reduce((total, file) => total + file.size, 0) / 1024 / 1024).toFixed(2)} MB
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div className="text-left">
-                                    <p className="text-sm font-semibold text-gray-900 truncate max-w-32">{uploadForm.file.name}</p>
-                                    <p className="text-xs text-gray-500">{(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setUploadForm(prev => ({ ...prev, files: [], descriptions: [] }));
+                                      }}
+                                      className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-md transition-colors duration-200"
+                                    >
+                                      Clear All
+                                    </button>
+                                    <div className="text-2xl">📷</div>
                                   </div>
                                 </div>
                               </div>
-                              <p className="text-xs text-blue-600 font-medium">✓ File selected successfully</p>
                             </div>
                           ) : (
                             <div className="space-y-3">
@@ -1686,13 +1928,29 @@ export default function AdminRoomDashboard() {
                                 </svg>
                               </div>
                               <div>
-                                <p className="text-base font-semibold text-gray-900 mb-1">Drop your image here</p>
-                                <p className="text-sm text-gray-600 mb-3">or click to browse files</p>
-                                <div className="inline-flex items-center space-x-2 bg-white px-3 py-2 rounded-lg border border-blue-200 text-xs text-gray-600">
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                  <span>PNG, JPG, JPEG up to 10MB</span>
+                                <p className={`text-base font-semibold mb-1 transition-colors duration-300 ${
+                                  isDragOver ? 'text-blue-700' : 'text-gray-900'
+                                }`}>
+                                  {isDragOver ? '🎯 Drop Images Here!' : '📸 Drop Multiple Images Here'}
+                                </p>
+                                <p className={`text-sm mb-3 transition-colors duration-300 ${
+                                  isDragOver ? 'text-blue-600' : 'text-gray-600'
+                                }`}>
+                                  {isDragOver ? 'Release to add images' : 'or click to browse and select multiple files'}
+                                </p>
+                                <div className="space-y-2">
+                                  <div className="inline-flex items-center space-x-2 bg-white px-3 py-2 rounded-lg border border-blue-200 text-xs text-gray-600">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>PNG, JPG, JPEG up to 10MB each</span>
+                                  </div>
+                                  <div className="inline-flex items-center space-x-2 bg-green-50 px-3 py-2 rounded-lg border border-green-200 text-xs text-green-700">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                    <span>Select multiple files at once</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1715,8 +1973,12 @@ export default function AdminRoomDashboard() {
                           <span className="font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">3</span>
                         </div>
                         <div className="flex items-center justify-between bg-white/60 rounded-lg px-2 py-1">
+                          <span className="text-blue-700 font-medium">Max Files:</span>
+                          <span className="text-blue-800 font-medium">Multiple</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-white/60 rounded-lg px-2 py-1">
                           <span className="text-blue-700 font-medium">Max Size:</span>
-                          <span className="text-blue-800 font-medium">10 MB</span>
+                          <span className="text-blue-800 font-medium">10 MB each</span>
                         </div>
                         <div className="flex items-center justify-between bg-white/60 rounded-lg px-2 py-1">
                           <span className="text-blue-700 font-medium">Formats:</span>
@@ -1727,6 +1989,10 @@ export default function AdminRoomDashboard() {
                           <span className="font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs truncate max-w-20">
                             {roomDetail?.id?.slice(0, 8)}...
                           </span>
+                        </div>
+                        <div className="flex items-center justify-between bg-white/60 rounded-lg px-2 py-1">
+                          <span className="text-blue-700 font-medium">API:</span>
+                          <span className="text-blue-800 font-medium">upload-many</span>
                         </div>
                       </div>
                     </div>
@@ -1747,14 +2013,54 @@ export default function AdminRoomDashboard() {
                       
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
-                          <input
-                            type="text"
-                            placeholder="Enter a detailed description..."
-                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                            value={uploadForm.description}
-                            onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
-                          />
+                          <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Descriptions for Each Image
+                              <span className="text-blue-600 text-xs ml-2">({uploadForm.files.length} files)</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const autoDescriptions = uploadForm.files.map((file, index) => 
+                                  `Room image ${index + 1} - ${file.name.split('.')[0]}`
+                                );
+                                setUploadForm(prev => ({ ...prev, descriptions: autoDescriptions }));
+                              }}
+                              className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded-md transition-colors duration-200"
+                            >
+                              Auto Fill
+                            </button>
+                          </div>
+                          <div className="space-y-3 max-h-64 overflow-y-auto">
+                            {uploadForm.files.map((file, index) => (
+                              <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex-shrink-0">
+                                  <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={`Preview ${index + 1}`}
+                                    className="w-12 h-12 object-cover rounded-lg border border-gray-300"
+                                  />
+                                  <div className="text-center mt-1">
+                                    <span className="text-xs font-bold text-blue-600">#{index + 1}</span>
+                                  </div>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-xs text-gray-600 mb-1 truncate max-w-48">{file.name}</div>
+                                  <input
+                                    type="text"
+                                    placeholder={`Description for image ${index + 1}...`}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    value={uploadForm.descriptions[index] || ""}
+                                    onChange={(e) => {
+                                      const newDescriptions = [...uploadForm.descriptions];
+                                      newDescriptions[index] = e.target.value;
+                                      setUploadForm(prev => ({ ...prev, descriptions: newDescriptions }));
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Image Type</label>
@@ -1780,26 +2086,29 @@ export default function AdminRoomDashboard() {
                       <button
                         type="button"
                         className="flex-1 bg-gray-100 text-gray-700 rounded-xl px-6 py-4 hover:bg-gray-200 font-medium transition-all duration-200 border border-gray-200 hover:border-gray-300"
-                        onClick={() => setShowUploadModal(false)}
+                        onClick={() => {
+                          setShowUploadModal(false);
+                          setUploadForm({ files: [], descriptions: [], type: "image" });
+                        }}
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        disabled={!uploadForm.file || uploading}
+                        disabled={!uploadForm.files.length || uploading}
                         className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl px-6 py-4 hover:from-blue-700 hover:to-blue-800 font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                       >
                         {uploading ? (
                           <>
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                            Uploading...
+                            Uploading {uploadForm.files.length} images...
                           </>
                         ) : (
                           <>
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                             </svg>
-                            Upload Image
+                            Upload {uploadForm.files.length > 0 ? `${uploadForm.files.length} Images` : 'Images'}
                           </>
                         )}
                       </button>

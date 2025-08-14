@@ -62,9 +62,9 @@ export default function CreatePackageDashboard() {
     propertyId: "",
     roomTypeId: "",
     price: "",
-    basicPlanCategoryId: 1,
-    planLevelId: 1,
-    targetAudienceId: 1,
+    basicPlanCategoryId: "",
+    planLevelId: "",
+    targetAudienceId: "",
   })
   const [selectedPlanType, setSelectedPlanType] = useState<any>(null)
   const [finalPrice, setFinalPrice] = useState<number>(0)
@@ -87,7 +87,6 @@ export default function CreatePackageDashboard() {
 
   // 1. State cho combo packages
   const [comboPlans, setComboPlans] = useState<any[]>([])
-  const [packageLevels, setPackageLevels] = useState<any[]>([])
   const [showAddComboModal, setShowAddComboModal] = useState(false)
   const [showComboDetailModal, setShowComboDetailModal] = useState(false)
   const [selectedCombo, setSelectedCombo] = useState<any>(null)
@@ -98,6 +97,8 @@ export default function CreatePackageDashboard() {
     name: '',
     discountRate: 0,
     packageLevelId: '',
+    packageCategoryId: '',
+    targetAudienceId: '',
   })
   const [selectedComboBasic, setSelectedComboBasic] = useState<{accommodation: string|null, lifeActivities: string[]}>({accommodation: null, lifeActivities: []})
   const [comboError, setComboError] = useState('')
@@ -112,6 +113,11 @@ export default function CreatePackageDashboard() {
   // Thêm state cho entitlement
   const [entitlements, setEntitlements] = useState<any[]>([])
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('')
+
+  // Thêm state cho các API mới
+  const [planLevels, setPlanLevels] = useState<any[]>([])
+  const [planTargetAudiences, setPlanTargetAudiences] = useState<any[]>([])
+  const [planCategories, setPlanCategories] = useState<any[]>([])
 
   // Lấy propertyId từ localStorage (key: nextu_internal_user)
   useEffect(() => {
@@ -141,6 +147,27 @@ export default function CreatePackageDashboard() {
   useEffect(() => {
     axios.get("/api/membership/PackageDuration").then(res => {
       setDurations(res.data)
+    })
+  }, [])
+
+  // Lấy PlanLevels từ API /api/PlanLevel
+  useEffect(() => {
+    axios.get("/api/PlanLevel").then(res => {
+      setPlanLevels(res.data)
+    })
+  }, [])
+
+  // Lấy PlanTargetAudiences từ API /api/PlanTargetAudience
+  useEffect(() => {
+    axios.get("/api/PlanTargetAudience").then(res => {
+      setPlanTargetAudiences(res.data)
+    })
+  }, [])
+
+  // Lấy PlanCategories từ API /api/PlanCategory
+  useEffect(() => {
+    axios.get("/api/PlanCategory").then(res => {
+      setPlanCategories(res.data)
     })
   }, [])
 
@@ -238,7 +265,7 @@ export default function CreatePackageDashboard() {
     }
   }, [selectedPlanType, selectedEntitlementId, entitlements, selectedDurationIds, durations])
 
-  // 2. Lấy comboPlans, packageLevels
+  // 2. Lấy comboPlans
   const fetchComboPlans = () => {
     let locationId = ''
     if (typeof window !== 'undefined') {
@@ -258,8 +285,6 @@ export default function CreatePackageDashboard() {
 
   useEffect(() => {
     fetchComboPlans()
-    // Lấy package levels
-    axios.get('/api/membership/PackageLevel').then(res => setPackageLevels(res.data))
   }, [])
 
   // Map lại dữ liệu cho DataTable
@@ -419,9 +444,7 @@ export default function CreatePackageDashboard() {
         requireBooking,
         packageDurations,
         price: finalPrice,
-        basicPlanCategoryId: 1,
-        planLevelId: 1,
-        targetAudienceId: 1,
+        basicPlanCategoryId: Number(form.basicPlanCategoryId),
         ...extra
       })
       alert("Tạo Basic Package thành công!")
@@ -436,9 +459,9 @@ export default function CreatePackageDashboard() {
         propertyId: "",
         roomTypeId: "",
         price: "",
-        basicPlanCategoryId: 1,
-        planLevelId: 1,
-        targetAudienceId: 1,
+        basicPlanCategoryId: "",
+        planLevelId: "",
+        targetAudienceId: "",
       })
       setSelectedPlanType(null)
       setSelectedRoom(null)
@@ -470,7 +493,7 @@ export default function CreatePackageDashboard() {
     e.preventDefault()
     setComboError('')
     // Validate
-    if (!formCombo.code || !formCombo.name || !formCombo.packageLevelId) {
+    if (!formCombo.code || !formCombo.name || !formCombo.packageLevelId || !formCombo.packageCategoryId || !formCombo.targetAudienceId) {
       setComboError('Vui lòng nhập đủ thông tin!')
       return
     }
@@ -502,7 +525,7 @@ export default function CreatePackageDashboard() {
     }
     // Lấy packageLevelName
     let packageLevelName = ''
-    const pkgLevel = packageLevels.find((l: any) => l.id === formCombo.packageLevelId)
+    const pkgLevel = planLevels.find((l: any) => l.id === formCombo.packageLevelId)
     if (pkgLevel) packageLevelName = pkgLevel.name
     // Tính totalPrice và packageDurations
     const totalPrice = comboPriceInfo.totalAfterDiscount
@@ -522,6 +545,8 @@ export default function CreatePackageDashboard() {
         locationName,
         packageLevelId: formCombo.packageLevelId,
         packageLevelName,
+        packageCategoryId: Number(formCombo.packageCategoryId),
+        targetAudienceId: formCombo.targetAudienceId,
         basicPlanIds: [selectedComboBasic.accommodation, ...selectedComboBasic.lifeActivities],
         totalPrice,
         packageDurations
@@ -531,7 +556,7 @@ export default function CreatePackageDashboard() {
       fetchComboPlans()
       // Reset form và modal
       setShowAddComboModal(false)
-      setFormCombo({ code: '', name: '', discountRate: 0, packageLevelId: '' })
+      setFormCombo({ code: '', name: '', discountRate: 0, packageLevelId: '', packageCategoryId: '', targetAudienceId: '' })
       setSelectedComboBasic({ accommodation: null, lifeActivities: [] })
       setComboDurationId('')
       setComboError('')
@@ -1057,6 +1082,57 @@ export default function CreatePackageDashboard() {
                         </div>
                       )}
 
+                      {/* Plan Level */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Plan Level *</label>
+                        <select 
+                          name="planLevelId" 
+                          value={form.planLevelId} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Plan Level</option>
+                          {planLevels.map((level: any) => (
+                            <option key={level.id} value={level.id}>{level.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Target Audience */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Target Audience *</label>
+                        <select 
+                          name="targetAudienceId" 
+                          value={form.targetAudienceId} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Target Audience</option>
+                          {planTargetAudiences.map((audience: any) => (
+                            <option key={audience.id} value={audience.id}>{audience.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Plan Category */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Plan Category *</label>
+                        <select 
+                          name="basicPlanCategoryId" 
+                          value={form.basicPlanCategoryId} 
+                          onChange={handleChange} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Plan Category</option>
+                          {planCategories.map((category: any) => (
+                            <option key={category.id} value={category.id}>{category.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
                       {/* Duration */}
                       <div className="flex flex-col">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Duration *</label>
@@ -1104,6 +1180,9 @@ export default function CreatePackageDashboard() {
                         <div className="text-sm text-gray-600 mb-1">Package Details</div>
                         <div className="space-y-0.5 text-xs">
                           <div><span className="font-medium">Type:</span> {selectedPlanType?.name || 'Not selected'}</div>
+                          <div><span className="font-medium">Level:</span> {form.planLevelId ? planLevels.find((l: any) => l.id === form.planLevelId)?.name : 'Not selected'}</div>
+                          <div><span className="font-medium">Target:</span> {form.targetAudienceId ? planTargetAudiences.find((a: any) => a.id === form.targetAudienceId)?.name : 'Not selected'}</div>
+                          <div><span className="font-medium">Category:</span> {form.basicPlanCategoryId ? planCategories.find((c: any) => c.id === Number(form.basicPlanCategoryId))?.name : 'Not selected'}</div>
                           <div><span className="font-medium">Duration:</span> {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'Not selected'}</div>
                           {selectedPlanType?.code === "ACCOMMODATION" && selectedRoom && (
                             <div><span className="font-medium">Room:</span> {selectedRoom.roomTypeName}</div>
@@ -1128,7 +1207,7 @@ export default function CreatePackageDashboard() {
                     <button 
                       type="submit" 
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center text-sm"
-                      disabled={!form.basicPlanTypeId || !form.code || !form.name || selectedDurationIds.length === 0}
+                      disabled={!form.basicPlanTypeId || !form.code || !form.name || !form.planLevelId || !form.targetAudienceId || !form.basicPlanCategoryId || selectedDurationIds.length === 0}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Create Basic Package
@@ -1326,7 +1405,7 @@ export default function CreatePackageDashboard() {
                       </div>
                       
                       <div className="flex flex-col">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Level *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Plan Level *</label>
                         <select 
                           name="packageLevelId" 
                           value={formCombo.packageLevelId} 
@@ -1334,9 +1413,45 @@ export default function CreatePackageDashboard() {
                           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           required
                         >
-                          <option value="">Select Package Level</option>
-                          {packageLevels.map((l: any) => (
+                          <option value="">Select Plan Level</option>
+                          {planLevels.map((l: any) => (
                             <option key={l.id} value={l.id}>{l.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+                      {/* Plan Category */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Plan Category *</label>
+                        <select 
+                          name="packageCategoryId" 
+                          value={formCombo.packageCategoryId} 
+                          onChange={e => setFormCombo(f => ({ ...f, packageCategoryId: e.target.value }))} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Plan Category</option>
+                          {planCategories.map((category: any) => (
+                            <option key={category.id} value={category.id}>{category.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Target Audience */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Target Audience *</label>
+                        <select 
+                          name="targetAudienceId" 
+                          value={formCombo.targetAudienceId} 
+                          onChange={e => setFormCombo(f => ({ ...f, targetAudienceId: e.target.value }))} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
+                        >
+                          <option value="">Select Target Audience</option>
+                          {planTargetAudiences.map((audience: any) => (
+                            <option key={audience.id} value={audience.id}>{audience.name}</option>
                           ))}
                         </select>
                       </div>
@@ -1513,7 +1628,9 @@ export default function CreatePackageDashboard() {
                             <div><span className="font-medium">Accommodation:</span> {selectedComboBasic.accommodation ? basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)?.name : 'Not selected'}</div>
                             <div><span className="font-medium">Life Activities:</span> {selectedComboBasic.lifeActivities.length} package(s)</div>
                             <div><span className="font-medium">Duration:</span> {comboDurationId ? durations.find((d: any) => String(d.id) === String(comboDurationId))?.value + ' ' + durations.find((d: any) => String(d.id) === String(comboDurationId))?.unit : 'Not selected'}</div>
-                            <div><span className="font-medium">Level:</span> {formCombo.packageLevelId ? packageLevels.find((l: any) => l.id === formCombo.packageLevelId)?.name : 'Not selected'}</div>
+                            <div><span className="font-medium">Level:</span> {formCombo.packageLevelId ? planLevels.find((l: any) => l.id === formCombo.packageLevelId)?.name : 'Not selected'}</div>
+                            <div><span className="font-medium">Category:</span> {formCombo.packageCategoryId ? planCategories.find((c: any) => c.id === Number(formCombo.packageCategoryId))?.name : 'Not selected'}</div>
+                            <div><span className="font-medium">Target:</span> {formCombo.targetAudienceId ? planTargetAudiences.find((a: any) => a.id === formCombo.targetAudienceId)?.name : 'Not selected'}</div>
                           </div>
                         </div>
                       </div>
@@ -1589,7 +1706,7 @@ export default function CreatePackageDashboard() {
                     <button 
                       type="submit" 
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center text-sm"
-                      disabled={!formCombo.code || !formCombo.name || !formCombo.packageLevelId || !comboDurationId || !selectedComboBasic.accommodation || selectedComboBasic.lifeActivities.length < 2}
+                      disabled={!formCombo.code || !formCombo.name || !formCombo.packageLevelId || !formCombo.packageCategoryId || !formCombo.targetAudienceId || !comboDurationId || !selectedComboBasic.accommodation || selectedComboBasic.lifeActivities.length < 2}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Create Combo Package
@@ -1659,7 +1776,7 @@ export default function CreatePackageDashboard() {
                   <div><b>Combo:</b> {selectedCombo.name}</div>
                   <div><b>Code:</b> {selectedCombo.code}</div>
                   <div><b>Discount Rate:</b> {selectedCombo.discountRate}</div>
-                  <div><b>Level:</b> {packageLevels.find(l => l.id === selectedCombo.packageLevelId)?.name || '-'}</div>
+                  <div><b>Level:</b> {planLevels.find(l => l.id === selectedCombo.packageLevelId)?.name || '-'}</div>
                   <div><b>Basic Packages:</b> {(selectedCombo.basicPlanIds || []).map((id: string) => basicPlans.find((b: any) => b.id === id)?.name).join(', ')}</div>
                 </div>
               </div>
