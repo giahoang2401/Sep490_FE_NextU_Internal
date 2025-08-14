@@ -96,8 +96,8 @@ export default function CreatePackageDashboard() {
     code: '',
     name: '',
     discountRate: 0,
-    packageLevelId: '',
-    packageCategoryId: '',
+    planLevelId: '',
+    basicPlanCategoryId: '',
     targetAudienceId: '',
   })
   const [selectedComboBasic, setSelectedComboBasic] = useState<{accommodation: string|null, lifeActivities: string[]}>({accommodation: null, lifeActivities: []})
@@ -278,7 +278,7 @@ export default function CreatePackageDashboard() {
       }
     }
     if (locationId) {
-      axios.get(`/api/membership/ComboPlans?locationId=${locationId}`)
+      axios.get(`/api/membership/ComboPlans?propertyId=${locationId}`)
         .then(res => setComboPlans(res.data))
     }
   }
@@ -492,8 +492,8 @@ export default function CreatePackageDashboard() {
   const handleAddComboSubmit = async (e: any) => {
     e.preventDefault()
     setComboError('')
-    // Validate
-    if (!formCombo.code || !formCombo.name || !formCombo.packageLevelId || !formCombo.packageCategoryId || !formCombo.targetAudienceId) {
+    // Validate - Cần validate tất cả các field bắt buộc
+    if (!formCombo.code || !formCombo.name || !formCombo.planLevelId || !formCombo.basicPlanCategoryId || !formCombo.targetAudienceId) {
       setComboError('Vui lòng nhập đủ thông tin!')
       return
     }
@@ -523,40 +523,56 @@ export default function CreatePackageDashboard() {
       const accPlan = basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)
       if (accPlan && accPlan.locationName) locationName = accPlan.locationName
     }
-    // Lấy packageLevelName
-    let packageLevelName = ''
-    const pkgLevel = planLevels.find((l: any) => l.id === formCombo.packageLevelId)
-    if (pkgLevel) packageLevelName = pkgLevel.name
+    // packageLevelName is no longer needed since API uses planLevelId as number
     // Tính totalPrice và packageDurations
     const totalPrice = comboPriceInfo.totalAfterDiscount
     const packageDurations = comboDurationId ? [{
       durationId: comboDurationId,
-      discountRate: Number(formCombo.discountRate) || 0
+      discountRate: (Number(formCombo.discountRate) || 0) / 100 // Convert percentage to decimal (15 -> 0.15)
     }] : []
-    // Gửi API
+    // Gửi API - Sửa lại theo format chuẩn
+    const payload = {
+      code: formCombo.code,
+      name: formCombo.name,
+      totalPrice,
+      discountRate: Number(formCombo.discountRate) / 100, // Convert percentage to decimal (15 -> 0.15)
+      isSuggested: true,
+      verifyBuy: false,
+      propertyId: locationId, // From localStorage
+      basicPlanCategoryId: Number(formCombo.basicPlanCategoryId), // From user selection
+      planLevelId: Number(formCombo.planLevelId), // From user selection
+      targetAudienceId: Number(formCombo.targetAudienceId), // From user selection
+      basicPlanIds: [selectedComboBasic.accommodation, ...selectedComboBasic.lifeActivities],
+      packageDurations: packageDurations.map(pd => ({
+        durationId: Number(pd.durationId),
+        discountRate: Number(pd.discountRate) // Already converted to decimal above (15% -> 0.15)
+      }))
+    };
+    
+    console.log('=== COMBO PAYLOAD BEING SENT ===', payload);
+    console.log('=== EXPECTED FORMAT ===', {
+      "code": "CB_Vi698",
+      "name": "Nguyễn Hoàng Gia",
+      "totalPrice": 31696500,
+      "discountRate": 0.15,
+      "isSuggested": true,
+      "verifyBuy": false,
+      "propertyId": "30000000-0000-0000-0000-000000000001",
+      "basicPlanCategoryId": 1,
+      "planLevelId": 1,
+      "targetAudienceId": 1,
+      "basicPlanIds": ["3b3ffde1-387d-447d-397a-08dddb541fe2","50033192-2e9f-4fbe-d1d1-08dddb6bd27f","5d060abe-ec39-422a-d1d0-08dddb6bd27f"],
+      "packageDurations": [{"durationId": 2, "discountRate": 0.15}]
+    });
+    
     try {
-      await axios.post('/api/membership/ComboPlans', {
-        code: formCombo.code,
-        name: formCombo.name,
-        discountRate: Number(formCombo.discountRate),
-        isSuggested: true,
-        verifyBuy: false,
-        locationId,
-        locationName,
-        packageLevelId: formCombo.packageLevelId,
-        packageLevelName,
-        packageCategoryId: Number(formCombo.packageCategoryId),
-        targetAudienceId: formCombo.targetAudienceId,
-        basicPlanIds: [selectedComboBasic.accommodation, ...selectedComboBasic.lifeActivities],
-        totalPrice,
-        packageDurations
-      })
+      await axios.post('/api/membership/ComboPlans', payload);
       alert('Tạo Combo Package thành công!')
       // Refresh danh sách combo plans sau khi tạo thành công
       fetchComboPlans()
       // Reset form và modal
       setShowAddComboModal(false)
-      setFormCombo({ code: '', name: '', discountRate: 0, packageLevelId: '', packageCategoryId: '', targetAudienceId: '' })
+      setFormCombo({ code: '', name: '', discountRate: 0, planLevelId: '', basicPlanCategoryId: '', targetAudienceId: '' })
       setSelectedComboBasic({ accommodation: null, lifeActivities: [] })
       setComboDurationId('')
       setComboError('')
@@ -1407,9 +1423,9 @@ export default function CreatePackageDashboard() {
                       <div className="flex flex-col">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Plan Level *</label>
                         <select 
-                          name="packageLevelId" 
-                          value={formCombo.packageLevelId} 
-                          onChange={e => setFormCombo(f => ({ ...f, packageLevelId: e.target.value }))} 
+                          name="planLevelId" 
+                          value={formCombo.planLevelId} 
+                          onChange={e => setFormCombo(f => ({ ...f, planLevelId: e.target.value }))} 
                           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           required
                         >
@@ -1426,9 +1442,9 @@ export default function CreatePackageDashboard() {
                       <div className="flex flex-col">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Plan Category *</label>
                         <select 
-                          name="packageCategoryId" 
-                          value={formCombo.packageCategoryId} 
-                          onChange={e => setFormCombo(f => ({ ...f, packageCategoryId: e.target.value }))} 
+                          name="basicPlanCategoryId" 
+                          value={formCombo.basicPlanCategoryId} 
+                          onChange={e => setFormCombo(f => ({ ...f, basicPlanCategoryId: e.target.value }))} 
                           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           required
                         >
@@ -1628,8 +1644,8 @@ export default function CreatePackageDashboard() {
                             <div><span className="font-medium">Accommodation:</span> {selectedComboBasic.accommodation ? basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)?.name : 'Not selected'}</div>
                             <div><span className="font-medium">Life Activities:</span> {selectedComboBasic.lifeActivities.length} package(s)</div>
                             <div><span className="font-medium">Duration:</span> {comboDurationId ? durations.find((d: any) => String(d.id) === String(comboDurationId))?.value + ' ' + durations.find((d: any) => String(d.id) === String(comboDurationId))?.unit : 'Not selected'}</div>
-                            <div><span className="font-medium">Level:</span> {formCombo.packageLevelId ? planLevels.find((l: any) => l.id === formCombo.packageLevelId)?.name : 'Not selected'}</div>
-                            <div><span className="font-medium">Category:</span> {formCombo.packageCategoryId ? planCategories.find((c: any) => c.id === Number(formCombo.packageCategoryId))?.name : 'Not selected'}</div>
+                            <div><span className="font-medium">Level:</span> {formCombo.planLevelId ? planLevels.find((l: any) => l.id === formCombo.planLevelId)?.name : 'Not selected'}</div>
+                            <div><span className="font-medium">Category:</span> {formCombo.basicPlanCategoryId ? planCategories.find((c: any) => c.id === Number(formCombo.basicPlanCategoryId))?.name : 'Not selected'}</div>
                             <div><span className="font-medium">Target:</span> {formCombo.targetAudienceId ? planTargetAudiences.find((a: any) => a.id === formCombo.targetAudienceId)?.name : 'Not selected'}</div>
                           </div>
                         </div>
@@ -1706,7 +1722,7 @@ export default function CreatePackageDashboard() {
                     <button 
                       type="submit" 
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center text-sm"
-                      disabled={!formCombo.code || !formCombo.name || !formCombo.packageLevelId || !formCombo.packageCategoryId || !formCombo.targetAudienceId || !comboDurationId || !selectedComboBasic.accommodation || selectedComboBasic.lifeActivities.length < 2}
+                      disabled={!formCombo.code || !formCombo.name || !formCombo.planLevelId || !formCombo.basicPlanCategoryId || !formCombo.targetAudienceId || !comboDurationId || !selectedComboBasic.accommodation || selectedComboBasic.lifeActivities.length < 2}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Create Combo Package
@@ -1776,7 +1792,7 @@ export default function CreatePackageDashboard() {
                   <div><b>Combo:</b> {selectedCombo.name}</div>
                   <div><b>Code:</b> {selectedCombo.code}</div>
                   <div><b>Discount Rate:</b> {selectedCombo.discountRate}</div>
-                  <div><b>Level:</b> {planLevels.find(l => l.id === selectedCombo.packageLevelId)?.name || '-'}</div>
+                  <div><b>Level:</b> {planLevels.find(l => l.id === selectedCombo.planLevelId)?.name || '-'}</div>
                   <div><b>Basic Packages:</b> {(selectedCombo.basicPlanIds || []).map((id: string) => basicPlans.find((b: any) => b.id === id)?.name).join(', ')}</div>
                 </div>
               </div>

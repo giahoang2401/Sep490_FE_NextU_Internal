@@ -151,6 +151,11 @@ export default function AdminRoomDashboard() {
   const [loadingNextUServices, setLoadingNextUServices] = useState(false);
   const [loadingEcosystems, setLoadingEcosystems] = useState(false);
   
+  // EntitlementRule state
+  const [entitlementRules, setEntitlementRules] = useState<{ id: string; nextUServiceId: string; nextUServiceName: string; price: number; creditAmount: number; period: number; limitPerPeriod: number; note: string }[]>([]);
+  const [showEntitlementRuleModal, setShowEntitlementRuleModal] = useState(false);
+  const [loadingEntitlementRules, setLoadingEntitlementRules] = useState(false);
+  
   // Form states for NextUService
   const [nextUServiceForm, setNextUServiceForm] = useState({
     name: "",
@@ -165,6 +170,16 @@ export default function AdminRoomDashboard() {
     code: "",
     name: "",
     description: ""
+  });
+  
+  // Form states for EntitlementRule
+  const [entitlementRuleForm, setEntitlementRuleForm] = useState({
+    nextUServiceId: "",
+    price: 0,
+    creditAmount: 0,
+    period: 0,
+    limitPerPeriod: 0,
+    note: ""
   });
   
   const [optionForm, setOptionForm] = useState({
@@ -270,6 +285,7 @@ export default function AdminRoomDashboard() {
     fetchRoomSelectOptions();
     fetchNextUServices();
     fetchEcosystems();
+    fetchEntitlementRules();
   }, []);
 
   // Refresh data when tab becomes visible (user returns to tab)
@@ -279,6 +295,7 @@ export default function AdminRoomDashboard() {
         console.log("Tab became visible, refreshing data...");
         fetchNextUServices();
         fetchEcosystems();
+        fetchEntitlementRules();
       }
     };
 
@@ -286,6 +303,7 @@ export default function AdminRoomDashboard() {
       console.log("Window focused, refreshing data...");
       fetchNextUServices();
       fetchEcosystems();
+      fetchEntitlementRules();
     };
 
     // Thêm interval để refresh dữ liệu định kỳ (mỗi 30 giây)
@@ -293,6 +311,7 @@ export default function AdminRoomDashboard() {
       console.log("Periodic data refresh...");
       fetchNextUServices();
       fetchEcosystems();
+      fetchEntitlementRules();
     }, 30000);
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -447,6 +466,21 @@ export default function AdminRoomDashboard() {
     }
   };
 
+  // Fetch EntitlementRules
+  const fetchEntitlementRules = async () => {
+    setLoadingEntitlementRules(true);
+    try {
+      const res = await api.get("/api/EntitlementRule");
+      console.log("EntitlementRules API response:", res.data);
+      setEntitlementRules(res.data);
+    } catch (err) {
+      console.error("Error fetching EntitlementRules:", err);
+      setEntitlementRules([]);
+    } finally {
+      setLoadingEntitlementRules(false);
+    }
+  };
+
 
 
   // Create NextUService
@@ -492,6 +526,42 @@ export default function AdminRoomDashboard() {
       setShowEcosystemModal(false);
       fetchEcosystems();
     } catch (err: any) {
+      setToast("Creation failed: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // Create EntitlementRule
+  const handleCreateEntitlementRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const requestData = {
+        ...entitlementRuleForm,
+        price: Number(entitlementRuleForm.price),
+        creditAmount: Number(entitlementRuleForm.creditAmount),
+        period: Number(entitlementRuleForm.period),
+        limitPerPeriod: Number(entitlementRuleForm.limitPerPeriod),
+      };
+
+      console.log("Creating EntitlementRule with data:", requestData);
+      const response = await api.post("/api/EntitlementRule", requestData);
+      console.log("EntitlementRule created successfully:", response.data);
+      setToast("EntitlementRule created successfully!");
+      
+      // Reset form
+      setEntitlementRuleForm({
+        nextUServiceId: "",
+        price: 0,
+        creditAmount: 0,
+        period: 0,
+        limitPerPeriod: 0,
+        note: ""
+      });
+      setShowEntitlementRuleModal(false);
+      
+      // Refresh data
+      await fetchEntitlementRules();
+    } catch (err: any) {
+      console.error("Error creating EntitlementRule:", err);
       setToast("Creation failed: " + (err.response?.data?.message || err.message));
     }
   };
@@ -779,7 +849,7 @@ export default function AdminRoomDashboard() {
          
 
           {/* Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <DashboardCard 
               title="Total Rooms" 
               value={totalRooms} 
@@ -800,12 +870,17 @@ export default function AdminRoomDashboard() {
               value={ecosystems.length} 
               icon={() => <span className="text-2xl">🌐</span>} 
             />
+            <DashboardCard 
+              title="Entitlement Rules" 
+              value={entitlementRules.length} 
+              icon={() => <span className="text-2xl">📋</span>} 
+            />
           </div>
 
 
 
-          {/* Main Content Grid - 2x2 Layout */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-[calc(100vh-300px)]">
+          {/* Main Content Grid - 2x3 Layout */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
             
             {/* Top Left - Ecosystems */}
             <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
@@ -1017,6 +1092,57 @@ export default function AdminRoomDashboard() {
                             </tr>
                           );
                         })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Third Column - EntitlementRules */}
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-red-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Entitlement Rules</h3>
+                    <p className="text-gray-600 text-xs">Service entitlement management</p>
+                  </div>
+                  <button 
+                    className="bg-orange-600 text-white px-3 py-1.5 rounded-lg hover:bg-orange-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                    onClick={() => setShowEntitlementRuleModal(true)}
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-hidden h-[calc(100%-60px)]">
+                {loadingEntitlementRules ? (
+                  <div className="p-4 text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mx-auto"></div>
+                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto h-full">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Limit</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {entitlementRules.map((rule) => (
+                          <tr key={rule.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-32">{rule.nextUServiceName}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.price.toLocaleString()} VND</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.creditAmount}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.period}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.limitPerPeriod}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -1455,6 +1581,120 @@ export default function AdminRoomDashboard() {
                   className="flex-1 bg-emerald-600 text-white rounded-lg px-4 py-2 hover:bg-emerald-700 font-medium transition-all duration-200 shadow-md"
                 >
                   Create Ecosystem
+                </button>
+              </div>
+            </form>
+          </Modal>
+
+          {/* Add EntitlementRule Modal */}
+          <Modal open={showEntitlementRuleModal} title="Add New Entitlement Rule" onClose={() => setShowEntitlementRuleModal(false)}>
+            <form className="space-y-3 p-5" onSubmit={handleCreateEntitlementRule}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">NextU Service *</label>
+                  <select
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
+                    value={entitlementRuleForm.nextUServiceId}
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, nextUServiceId: e.target.value }))}
+                  >
+                    <option value="">-- Select NextU Service --</option>
+                    {nextUServices.map(service => (
+                      <option key={service.id} value={service.id}>
+                        {service.name} ({service.ecosystemName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Price *</label>
+                  <input 
+                    type="number" 
+                    min={0}
+                    required 
+                    placeholder="Enter price..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
+                    value={entitlementRuleForm.price} 
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, price: Number(e.target.value) }))} 
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Credit Amount *</label>
+                  <input 
+                    type="number" 
+                    min={0}
+                    required 
+                    placeholder="Enter credit amount..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
+                    value={entitlementRuleForm.creditAmount} 
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, creditAmount: Number(e.target.value) }))} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Period *</label>
+                  <input 
+                    type="number" 
+                    min={0}
+                    required 
+                    placeholder="Enter period..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
+                    value={entitlementRuleForm.period} 
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, period: Number(e.target.value) }))} 
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Limit Per Period *</label>
+                <input 
+                  type="number" 
+                  min={0}
+                  required 
+                  placeholder="Enter limit per period..." 
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
+                  value={entitlementRuleForm.limitPerPeriod} 
+                  onChange={e => setEntitlementRuleForm(f => ({ ...f, limitPerPeriod: Number(e.target.value) }))} 
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Note</label>
+                <textarea 
+                  placeholder="Enter note..." 
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 resize-none" 
+                  value={entitlementRuleForm.note} 
+                  onChange={e => setEntitlementRuleForm(f => ({ ...f, note: e.target.value }))} 
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200 font-medium transition-all duration-200" 
+                  onClick={() => {
+                    setShowEntitlementRuleModal(false);
+                    // Reset form when closing modal
+                    setEntitlementRuleForm({
+                      nextUServiceId: "",
+                      price: 0,
+                      creditAmount: 0,
+                      period: 0,
+                      limitPerPeriod: 0,
+                      note: ""
+                    });
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 bg-orange-600 text-white rounded-lg px-4 py-2 hover:bg-orange-700 font-medium transition-all duration-200 shadow-md"
+                >
+                  Create Entitlement Rule
                 </button>
               </div>
             </form>
