@@ -525,7 +525,7 @@ export default function CreatePackageDashboard() {
     }
     // packageLevelName is no longer needed since API uses planLevelId as number
     // Tính totalPrice và packageDurations
-    const totalPrice = comboPriceInfo.totalAfterDiscount
+    const totalPrice = comboPriceInfo.total
     const packageDurations = comboDurationId ? [{
       durationId: comboDurationId,
       discountRate: (Number(formCombo.discountRate) || 0) / 100 // Convert percentage to decimal (15 -> 0.15)
@@ -584,11 +584,11 @@ export default function CreatePackageDashboard() {
   // Thêm hàm lấy duration object từ id
   const getDurationObj = (id: string) => durations.find((d: any) => String(d.id) === String(id))
 
-  // Tính tổng giá combo (có discount)
+  // Tính tổng giá combo (không có discount)
   const calculateComboTotal = () => {
-    if (!comboDurationId) return { total: 0, details: [], totalAfterDiscount: 0, discountAmount: 0 }
+    if (!comboDurationId) return { total: 0, details: [] }
     const comboDuration = getDurationObj(comboDurationId)
-    if (!comboDuration) return { total: 0, details: [], totalAfterDiscount: 0, discountAmount: 0 }
+    if (!comboDuration) return { total: 0, details: [] }
     const selectedIds = [selectedComboBasic.accommodation, ...selectedComboBasic.lifeActivities].filter(Boolean)
     let total = 0
     const details = selectedIds.map(id => {
@@ -608,11 +608,7 @@ export default function CreatePackageDashboard() {
       total += price
       return { name: plan.name, price: plan.price, months, total: price, duration: basicDuration ? `${basicDuration.planDurationValue} ${basicDuration.planDurationUnit}` : '-' }
     }).filter(Boolean)
-    // Discount
-    const discountRate = Number(formCombo.discountRate) || 0
-    const discountAmount = Math.round(total * discountRate / 100)
-    const totalAfterDiscount = total - discountAmount
-    return { total, details, totalAfterDiscount, discountAmount }
+    return { total, details }
   }
   const comboPriceInfo = calculateComboTotal()
 
@@ -1623,16 +1619,15 @@ export default function CreatePackageDashboard() {
                       </h3>
                       
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Final Price Display */}
+                        {/* Total Price Display */}
                         <div className="bg-white rounded-lg p-4 border border-blue-200">
-                          <div className="text-sm text-gray-600 mb-1">Final Price After Discount</div>
+                          <div className="text-sm text-gray-600 mb-1">Total Package Price</div>
                           <div className="text-2xl font-bold text-blue-600">
-                            {comboPriceInfo.totalAfterDiscount.toLocaleString()}₫
+                            {comboPriceInfo.total.toLocaleString()}₫
                           </div>
                           {formCombo.discountRate > 0 && (
                             <div className="text-xs text-gray-500 mt-1">
-                              <span className="line-through">{comboPriceInfo.total.toLocaleString()}₫</span>
-                              <span className="text-green-600 ml-2">(-{formCombo.discountRate}% discount)</span>
+                              <span className="text-blue-600">Discount: {formCombo.discountRate}%</span>
                             </div>
                           )}
                         </div>
@@ -1679,19 +1674,9 @@ export default function CreatePackageDashboard() {
                               ))}
                             </tbody>
                             <tfoot className="bg-gray-50">
-                              <tr className="font-semibold">
-                                <td className="px-3 py-2 text-right" colSpan={4}>Subtotal</td>
-                                <td className="px-3 py-2 text-right text-blue-700">{comboPriceInfo.total.toLocaleString()}₫</td>
-                              </tr>
-                              {formCombo.discountRate > 0 && (
-                                <tr className="font-semibold">
-                                  <td className="px-3 py-2 text-right" colSpan={4}>Discount ({formCombo.discountRate}%)</td>
-                                  <td className="px-3 py-2 text-right text-red-600">-{comboPriceInfo.discountAmount.toLocaleString()}₫</td>
-                                </tr>
-                              )}
                               <tr className="font-bold bg-blue-50">
-                                <td className="px-3 py-2 text-right" colSpan={4}>Final Total</td>
-                                <td className="px-3 py-2 text-right text-green-700 text-lg">{comboPriceInfo.totalAfterDiscount.toLocaleString()}₫</td>
+                                <td className="px-3 py-2 text-right" colSpan={4}>Total Package Price</td>
+                                <td className="px-3 py-2 text-right text-blue-700 text-lg">{comboPriceInfo.total.toLocaleString()}₫</td>
                               </tr>
                             </tfoot>
                           </table>
