@@ -1,30 +1,15 @@
 "use client"
 
-import { UserPlus, CreditCard, Users, Package, Calendar, Plus, Star, Home, GraduationCap, Lightbulb, MessageSquare } from "lucide-react"
-import Sidebar from "../shared/sidebar"
+import { UserPlus, Users, Package, Plus, Star, Home, GraduationCap, Lightbulb } from "lucide-react"
 import TopNav from "../shared/topNav"
 import DataTable from "../shared/dataTable"
-import RoleLayout from "../shared/roleLayout"
-import type { NavigationItem, User, TableColumn } from "../types"
+import type { User, TableColumn } from "../types"
 import { useState, useEffect } from "react"
 import axios from "../../../utils/axiosConfig"
 
-const navigation: NavigationItem[] = [
-  { name: "Applications", href: "/staff-onboarding", icon: UserPlus },
-  { name: "Payment Guide", href: "/staff-onboarding/payments", icon: CreditCard },
-  { name: "User Status", href: "/staff-onboarding/status", icon: Users },
-  { name: "Create Packages", href: "/staff-onboarding/packages", icon: Package, current: true },
-  { name: "Schedule Events", href: "/staff-onboarding/events", icon: Calendar },
-]
+// Navigation will be provided by the parent component
 
-const mockUser: User = {
-  id: "4",
-  name: "Emily Chen",
-  email: "emily@nextu.com",
-  role: "Staff_Onboarding",
-  location: "San Francisco, CA",
-  avatar: "/placeholder.svg?height=32&width=32",
-}
+// Mock user data removed - will be provided by authentication system
 
 
 
@@ -39,17 +24,12 @@ const serviceColumns: TableColumn[] = [
 
 
 
-const feedbackData = [
-  { service: "House Cleaning", feedback: "Excellent service, very thorough!", rating: 5, user: "Alex R." },
-  { service: "Coding Bootcamp", feedback: "Great instructor, learned a lot", rating: 5, user: "Maria G." },
-  { service: "Maintenance", feedback: "Quick response time", rating: 4, user: "David K." },
-  { service: "Meal Planning", feedback: "Helpful but could use more variety", rating: 4, user: "Sarah J." },
-]
+// Mock feedback data removed - will be fetched from API
 
 export default function CreatePackageDashboard() {
   // TẤT CẢ các hook phải ở đầu thân hàm component
   const [showAddModal, setShowAddModal] = useState(false)
-  const [basicPlanTypes, setBasicPlanTypes] = useState<any[]>([])
+  const [nextUServices, setNextUServices] = useState<any[]>([])
   const [accommodationOptions, setAccommodationOptions] = useState<any[]>([])
   const [durations, setDurations] = useState<any[]>([])
   const [selectedDurations, setSelectedDurations] = useState<{[key:string]: string}>({})
@@ -58,7 +38,7 @@ export default function CreatePackageDashboard() {
     code: "",
     name: "",
     description: "",
-    basicPlanTypeId: "",
+    nextUServiceId: "",
     propertyId: "",
     roomTypeId: "",
     price: "",
@@ -66,7 +46,7 @@ export default function CreatePackageDashboard() {
     planLevelId: "",
     targetAudienceId: "",
   })
-  const [selectedPlanType, setSelectedPlanType] = useState<any>(null)
+  const [selectedNextUService, setSelectedNextUService] = useState<any>(null)
   const [finalPrice, setFinalPrice] = useState<number>(0)
   const [selectedRoom, setSelectedRoom] = useState<any>(null)
   const [basicPlans, setBasicPlans] = useState<any[]>([])
@@ -95,6 +75,7 @@ export default function CreatePackageDashboard() {
   const [formCombo, setFormCombo] = useState({
     code: '',
     name: '',
+    description: '',
     discountRate: 0,
     planLevelId: '',
     basicPlanCategoryId: '',
@@ -136,10 +117,10 @@ export default function CreatePackageDashboard() {
     }
   }, [showAddModal])
 
-  // Lấy BasicPlanTypes
+  // Lấy NextUServices
   useEffect(() => {
-    axios.get("/api/membership/BasicPlanTypes").then(res => {
-      setBasicPlanTypes(res.data)
+    axios.get("/api/membership/NextUServices").then(res => {
+      setNextUServices(res.data)
     })
   }, [])
 
@@ -195,9 +176,9 @@ export default function CreatePackageDashboard() {
     fetchBasicPlans()
   }, [])
 
-  // Khi chọn BasicPlanType là Living thì gọi AccommodationOptions
+  // Khi chọn NextUService là Accommodation thì gọi AccommodationOptions
   useEffect(() => {
-    if (selectedPlanType && selectedPlanType.code === "ACCOMMODATION") {
+    if (selectedNextUService && selectedNextUService.serviceType === 0) {
       axios.get("/api/membership/AccommodationOptions").then(res => {
         setAccommodationOptions(res.data)
       })
@@ -205,17 +186,17 @@ export default function CreatePackageDashboard() {
       setAccommodationOptions([])
       setSelectedRoom(null)
     }
-  }, [selectedPlanType])
+  }, [selectedNextUService])
 
-  // Khi chọn type là LIFEACTIVITIES thì fetch entitlement
+  // Khi chọn type là Lifestyle Services thì fetch entitlement
   useEffect(() => {
-    if (selectedPlanType && selectedPlanType.code === 'LIFEACTIVITIES') {
+    if (selectedNextUService && selectedNextUService.serviceType === 1) {
       axios.get('/api/membership/EntitlementRule').then(res => setEntitlements(res.data))
     } else {
       setEntitlements([])
       setSelectedEntitlementId('')
     }
-  }, [selectedPlanType])
+  }, [selectedNextUService])
 
   // Khi chọn roomTypeId thì set selectedRoom
   useEffect(() => {
@@ -229,7 +210,7 @@ export default function CreatePackageDashboard() {
 
   // Tính giá cuối cùng khi chọn đủ room + duration
   useEffect(() => {
-    if (selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && selectedRoom && selectedDurationIds.length > 0) {
+    if (selectedNextUService && selectedNextUService.serviceType === 0 && selectedRoom && selectedDurationIds.length > 0) {
       // Lấy duration đầu tiên (chỉ cho phép chọn 1 duration)
       const durationId = selectedDurationIds[0]
       const duration = durations.find((d: any) => String(d.id) === String(durationId))
@@ -244,11 +225,11 @@ export default function CreatePackageDashboard() {
     } else {
       setFinalPrice(0)
     }
-  }, [selectedPlanType, selectedRoom, selectedDurationIds, durations])
+  }, [selectedNextUService, selectedRoom, selectedDurationIds, durations])
 
-  // Khi chọn entitlement cho Life Activities, tự động lấy giá và nhân với duration
+  // Khi chọn entitlement cho Lifestyle Services, tự động lấy giá và nhân với duration
   useEffect(() => {
-    if (selectedPlanType && selectedPlanType.code === 'LIFEACTIVITIES' && selectedEntitlementId) {
+    if (selectedNextUService && selectedNextUService.serviceType === 1 && selectedEntitlementId) {
       const ent = entitlements.find((e: any) => e.id === selectedEntitlementId)
       let months = 1
       if (selectedDurationIds.length > 0 && durations.length > 0) {
@@ -263,7 +244,15 @@ export default function CreatePackageDashboard() {
         setFinalPrice(0)
       }
     }
-  }, [selectedPlanType, selectedEntitlementId, entitlements, selectedDurationIds, durations])
+  }, [selectedNextUService, selectedEntitlementId, entitlements, selectedDurationIds, durations])
+
+  // Reset selected packages when combo duration changes
+  useEffect(() => {
+    if (comboDurationId) {
+      // Reset selected packages when duration changes
+      setSelectedComboBasic({ accommodation: null, lifeActivities: [] })
+    }
+  }, [comboDurationId])
 
   // 2. Lấy comboPlans
   const fetchComboPlans = () => {
@@ -290,7 +279,7 @@ export default function CreatePackageDashboard() {
   // Map lại dữ liệu cho DataTable
   const mappedPlans = basicPlans.map(plan => ({
     service: plan.name,
-    category: plan.basicPlanType,
+    category: plan.nextUServiceName,
     status: plan.status || "Active",
     price: plan.price?.toLocaleString() + "₫" || "-",
     planDurationDescription: plan.planDurations && plan.planDurations.length > 0
@@ -307,7 +296,9 @@ export default function CreatePackageDashboard() {
       plan.raw.code?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === "all" || plan.status === statusFilter
-    const matchesType = typeFilter === "all" || plan.category === typeFilter
+    const matchesType = typeFilter === "all" || 
+      (typeFilter === "Accommodation" && plan.raw.serviceType === 0) ||
+      (typeFilter === "Lifestyle Services" && plan.raw.serviceType === 1)
     
     return matchesSearch && matchesStatus && matchesType
   })
@@ -352,37 +343,15 @@ export default function CreatePackageDashboard() {
   const comboTotalPages = Math.ceil(filteredComboPlans.length / comboPageSize)
   const pagedComboPlans = filteredComboPlans.slice((comboCurrentPage - 1) * comboPageSize, comboCurrentPage * comboPageSize)
 
-  // Render actions: Detail
-  const renderServiceActions = (row: any) => (
-    <div className="flex space-x-2">
-      <button
-        className="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full hover:bg-blue-200"
-        onClick={() => { setSelectedPlan(row.raw); setShowDetailModal(true) }}
-      >
-        Detail
-      </button>
-    </div>
-  )
 
-  // Render actions: Combo Detail
-  const renderComboActions = (row: any) => (
-    <div className="flex space-x-2">
-      <button
-        className="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full hover:bg-blue-200"
-        onClick={() => { setSelectedCombo(row.raw); setShowComboDetailModal(true) }}
-      >
-        Detail
-      </button>
-    </div>
-  )
 
   // 3. Modal Add Basic Package
   const handleChange = (e: any) => {
     const { name, value } = e.target
     setForm(f => ({ ...f, [name]: value }))
-    if (name === "basicPlanTypeId") {
-      const plan = basicPlanTypes.find((b: any) => b.id === value)
-      setSelectedPlanType(plan)
+    if (name === "nextUServiceId") {
+      const service = nextUServices.find((b: any) => b.id === value)
+      setSelectedNextUService(service)
     }
   }
 
@@ -419,32 +388,38 @@ export default function CreatePackageDashboard() {
     // Xác định verifyBuy/requireBooking theo loại gói
     let verifyBuy = true
     let requireBooking = true
-    if (selectedPlanType) {
-      if (selectedPlanType.code === "ACCOMMODATION") {
+    if (selectedNextUService) {
+      if (selectedNextUService.serviceType === 0) {
         verifyBuy = true
         requireBooking = true
-      } else if (selectedPlanType.code === "LIFEACTIVITIES") {
+      } else if (selectedNextUService.serviceType === 1) {
         verifyBuy = true
         requireBooking = false
       }
     }
-    // Nếu là ACCOMMODATION thì thêm accomodations
+    // Nếu là Accommodation (serviceType = 0) thì thêm accomodations
     let extra = {}
-    if (selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && form.roomTypeId) {
+    if (selectedNextUService && selectedNextUService.serviceType === 0 && form.roomTypeId) {
       extra = { accomodations: [{ accomodationId: form.roomTypeId }] }
     }
-    // Nếu là LIFEACTIVITIES thì gửi entitlements: [{ entitlementRuleId, quantity: 0 }]
-    if (selectedPlanType && selectedPlanType.code === 'LIFEACTIVITIES' && selectedEntitlementId) {
+    // Nếu là Lifestyle Services (serviceType = 1) thì gửi entitlements: [{ entitlementRuleId, quantity: 0 }]
+    if (selectedNextUService && selectedNextUService.serviceType === 1 && selectedEntitlementId) {
       extra = { ...extra, entitlements: [{ entitlementRuleId: selectedEntitlementId, quantity: 1 }] }
     }
     try {
       await axios.post("/api/membership/BasicPlans", {
-        ...form,
+        code: form.code,
+        name: form.name,
+        description: form.description,
+        price: finalPrice,
         verifyBuy,
         requireBooking,
-        packageDurations,
-        price: finalPrice,
+        nextUServiceId: form.nextUServiceId,
         basicPlanCategoryId: Number(form.basicPlanCategoryId),
+        planLevelId: Number(form.planLevelId),
+        targetAudienceId: Number(form.targetAudienceId),
+        propertyId: form.propertyId,
+        packageDurations,
         ...extra
       })
       alert("Tạo Basic Package thành công!")
@@ -455,7 +430,7 @@ export default function CreatePackageDashboard() {
         code: "",
         name: "",
         description: "",
-        basicPlanTypeId: "",
+        nextUServiceId: "",
         propertyId: "",
         roomTypeId: "",
         price: "",
@@ -463,7 +438,7 @@ export default function CreatePackageDashboard() {
         planLevelId: "",
         targetAudienceId: "",
       })
-      setSelectedPlanType(null)
+      setSelectedNextUService(null)
       setSelectedRoom(null)
       setSelectedDurationIds([])
       setSelectedDurations({})
@@ -502,7 +477,7 @@ export default function CreatePackageDashboard() {
       return
     }
     if (selectedComboBasic.lifeActivities.length < 2) {
-      setComboError('Chọn ít nhất 2 gói LIFEACTIVITIES!')
+      setComboError('Chọn ít nhất 2 gói Lifestyle Services!')
       return
     }
     // Lấy locationId và locationName
@@ -534,6 +509,7 @@ export default function CreatePackageDashboard() {
     const payload = {
       code: formCombo.code,
       name: formCombo.name,
+      description: formCombo.description,
       totalPrice,
       discountRate: Number(formCombo.discountRate) / 100, // Convert percentage to decimal (15 -> 0.15)
       isSuggested: true,
@@ -549,21 +525,7 @@ export default function CreatePackageDashboard() {
       }))
     };
     
-    console.log('=== COMBO PAYLOAD BEING SENT ===', payload);
-    console.log('=== EXPECTED FORMAT ===', {
-      "code": "CB_Vi698",
-      "name": "Nguyễn Hoàng Gia",
-      "totalPrice": 31696500,
-      "discountRate": 0.15,
-      "isSuggested": true,
-      "verifyBuy": false,
-      "propertyId": "30000000-0000-0000-0000-000000000001",
-      "basicPlanCategoryId": 1,
-      "planLevelId": 1,
-      "targetAudienceId": 1,
-      "basicPlanIds": ["3b3ffde1-387d-447d-397a-08dddb541fe2","50033192-2e9f-4fbe-d1d1-08dddb6bd27f","5d060abe-ec39-422a-d1d0-08dddb6bd27f"],
-      "packageDurations": [{"durationId": 2, "discountRate": 0.15}]
-    });
+         console.log('=== COMBO PAYLOAD BEING SENT ===', payload);
     
     try {
       await axios.post('/api/membership/ComboPlans', payload);
@@ -572,7 +534,7 @@ export default function CreatePackageDashboard() {
       fetchComboPlans()
       // Reset form và modal
       setShowAddComboModal(false)
-      setFormCombo({ code: '', name: '', discountRate: 0, planLevelId: '', basicPlanCategoryId: '', targetAudienceId: '' })
+      setFormCombo({ code: '', name: '', description: '', discountRate: 0, planLevelId: '', basicPlanCategoryId: '', targetAudienceId: '' })
       setSelectedComboBasic({ accommodation: null, lifeActivities: [] })
       setComboDurationId('')
       setComboError('')
@@ -613,118 +575,148 @@ export default function CreatePackageDashboard() {
   const comboPriceInfo = calculateComboTotal()
 
   return (
-    <RoleLayout>
-      <Sidebar navigation={navigation} title="Next U" userRole="Staff Onboarding" />
-
-      <div className="lg:pl-64 flex flex-col flex-1">
-        <TopNav user={mockUser} title="Package Creation Management" />
+    <>
+      <TopNav user={{ id: "", name: "", email: "", role: "", location: "", avatar: "" }} title="Package Creation Management" />
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          {/* Service Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex items-center">
-                <Home className="h-8 w-8 text-blue-500" />
-                <div className="ml-4">
-                  <div className="text-2xl font-bold text-gray-900">12</div>
-                  <div className="text-sm text-gray-500">NextLiving Services</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex items-center">
-                <GraduationCap className="h-8 w-8 text-green-500" />
-                <div className="ml-4">
-                  <div className="text-2xl font-bold text-gray-900">8</div>
-                  <div className="text-sm text-gray-500">NextAcademy Courses</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex items-center">
-                <Lightbulb className="h-8 w-8 text-yellow-500" />
-                <div className="ml-4">
-                  <div className="text-2xl font-bold text-gray-900">15</div>
-                  <div className="text-sm text-gray-500">Pending Proposals</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex items-center">
-                <Star className="h-8 w-8 text-purple-500" />
-                <div className="ml-4">
-                  <div className="text-2xl font-bold text-gray-900">4.7</div>
-                  <div className="text-sm text-gray-500">Avg Service Rating</div>
-                </div>
-              </div>
-            </div>
-          </div>
+                     {/* Service Stats */}
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+             <div className="bg-white shadow rounded-lg p-6">
+               <div className="flex items-center">
+                 <Home className="h-8 w-8 text-blue-500" />
+                 <div className="ml-4">
+                   <div className="text-2xl font-bold text-gray-900">-</div>
+                   <div className="text-sm text-gray-500">NextLiving Services</div>
+                 </div>
+               </div>
+             </div>
+             <div className="bg-white shadow rounded-lg p-6">
+               <div className="flex items-center">
+                 <GraduationCap className="h-8 w-8 text-green-500" />
+                 <div className="ml-4">
+                   <div className="text-2xl font-bold text-gray-900">-</div>
+                   <div className="text-sm text-gray-500">NextAcademy Courses</div>
+                 </div>
+               </div>
+             </div>
+             <div className="bg-white shadow rounded-lg p-6">
+               <div className="flex items-center">
+                 <Lightbulb className="h-8 w-8 text-yellow-500" />
+                 <div className="ml-4">
+                   <div className="text-2xl font-bold text-gray-900">-</div>
+                   <div className="text-sm text-gray-500">Pending Proposals</div>
+                 </div>
+               </div>
+             </div>
+             <div className="bg-white shadow rounded-lg p-6">
+               <div className="flex items-center">
+                 <Star className="h-8 w-8 text-purple-500" />
+                 <div className="ml-4">
+                   <div className="text-2xl font-bold text-gray-900">-</div>
+                   <div className="text-sm text-gray-500">Avg Service Rating</div>
+                 </div>
+               </div>
+             </div>
+           </div>
 
           {/* Service Management */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             {/* Basic packages - 3/4 width */}
             <div className="lg:col-span-3">
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                  <h3 className="text-lg font-medium text-gray-900">Basic packages</h3>
+              <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Basic Packages</h3>
+                      <p className="text-sm text-gray-600 mt-1">Manage your basic package offerings</p>
+                    </div>
                   <button
-                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                     onClick={() => setShowAddModal(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Basic Package
+                      Add Package
                   </button>
+                  </div>
                 </div>
                 
-                {/* Search and Filter Section */}
-                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    {/* Search */}
-                    <div className="flex-1">
+                {/* Advanced Filters */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
                       <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
                         <input
                           type="text"
-                          placeholder="Search packages, types, or codes..."
+                        placeholder="Search by package name, code, or description..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                         />
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
                         </div>
-                      </div>
+                    
+                    {/* Filter Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {/* Type Filter */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                        <select
+                          value={typeFilter}
+                          onChange={(e) => setTypeFilter(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        >
+                          <option value="all">All Types</option>
+                          <option value="Accommodation">Accommodation (Booking)</option>
+                          <option value="Lifestyle Services">Lifestyle Services (Non-booking)</option>
+                        </select>
                     </div>
                     
-                    {/* Status Filter */}
-                    <div className="w-full md:w-48">
+                      {/* Category Filter */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Pending">Pending</option>
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="Dài hạn">Long Term</option>
+                          <option value="Ngắn hạn">Short Term</option>
+                          <option value="Theo sự kiện">Event Based</option>
                       </select>
                     </div>
                     
-                    {/* Type Filter */}
-                    <div className="w-full md:w-48">
+                      {/* Level Filter */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Level</label>
                       <select
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="all">All Types</option>
-                        <option value="Living">Living</option>
-                        <option value="Life activities">Life activities</option>
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        >
+                          <option value="all">All Levels</option>
+                          <option value="Tiêu chuẩn">Standard</option>
+                          <option value="Cơ bản">Basic</option>
+                          <option value="Cao cấp">Premium</option>
+                        </select>
+                      </div>
+                      
+                      {/* Price Range */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Price Range</label>
+                        <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                          <option value="all">All Prices</option>
+                          <option value="0-10000000">Under 10M</option>
+                          <option value="10000000-50000000">10M - 50M</option>
+                          <option value="50000000-999999999">Above 50M</option>
                       </select>
                     </div>
                     
                     {/* Clear Filters */}
+                      <div className="md:col-span-1 flex items-end">
                     {(searchTerm || statusFilter !== "all" || typeFilter !== "all") && (
                       <button
                         onClick={() => {
@@ -732,234 +724,438 @@ export default function CreatePackageDashboard() {
                           setStatusFilter("all")
                           setTypeFilter("all")
                         }}
-                        className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="w-full px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                       >
-                        Clear Filters
+                            Clear All
                       </button>
                     )}
                   </div>
                   
-                  {/* Results count */}
-                  <div className="mt-3 text-sm text-gray-600">
-                    Showing {pagedPlans.length} of {filteredPlans.length} packages
-                    {searchTerm && ` for "${searchTerm}"`}
+                      {/* Results Info */}
+                      <div className="md:col-span-1 flex items-end">
+                        <div className="text-xs text-gray-500">
+                          {filteredPlans.length} of {basicPlans.length} packages
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
-                <DataTable columns={serviceColumns} data={pagedPlans} actions={renderServiceActions} />
-                {/* Thêm phân trang dưới bảng */}
-                <div className="flex justify-end mt-2">
-                  <nav className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
+                {/* Custom Table */}
+                <div className="overflow-hidden">
+                  {pagedPlans.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {pagedPlans.map((plan, index) => (
+                            <tr 
+                              key={index}
+                              onClick={() => { setSelectedPlan(plan.raw); setShowDetailModal(true) }}
+                              className="hover:bg-blue-50 cursor-pointer transition-colors duration-150"
+                            >
+                              <td className="px-6 py-4">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{plan.service}</div>
+                                  <div className="text-sm text-gray-500 font-mono">{plan.raw.code}</div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  plan.raw.serviceType === 0 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {plan.category}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="text-sm text-gray-900">{plan.raw.planCategoryName}</span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-semibold text-gray-900">{plan.price}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{plan.planDurationDescription}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                  plan.raw.planLevelName === 'Cao cấp' ? 'bg-purple-100 text-purple-800' :
+                                  plan.raw.planLevelName === 'Tiêu chuẩn' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {plan.raw.planLevelName}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2" />
+                      </svg>
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No packages found</h3>
+                      <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filter criteria.</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex items-center justify-between">
+                    <div className="text-sm text-gray-700">
+                      Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredPlans.length)} of {filteredPlans.length} results
+                    </div>
+                    <nav className="inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     <button
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      className="relative inline-flex items-center px-2 py-1 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        className="relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Prev
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Previous
                     </button>
-                    {[...Array(totalPages)].map((_, idx) => (
+                      {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                        const pageNum = currentPage <= 3 ? idx + 1 : 
+                                       currentPage >= totalPages - 2 ? totalPages - 4 + idx :
+                                       currentPage - 2 + idx;
+                        return (
                       <button
-                        key={idx}
-                        onClick={() => setCurrentPage(idx + 1)}
-                        className={`relative inline-flex items-center px-3 py-1 border-t border-b border-gray-300 text-sm font-medium ${currentPage === idx + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        {idx + 1}
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === pageNum 
+                                ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' 
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNum}
                       </button>
-                    ))}
+                        );
+                      })}
                     <button
                       disabled={currentPage === totalPages}
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      className="relative inline-flex items-center px-2 py-1 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        className="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Next
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                     </button>
                   </nav>
                 </div>
+                )}
               </div>
             </div>
 
-            {/* Recent Feedback Box - Side column */}
-            <div className="lg:col-span-1">
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Feedback</h3>
-                <div className="space-y-3">
-                  {feedbackData.map((item, index) => (
-                    <div key={index} className="border-l-4 border-blue-400 pl-4">
-                      <div className="text-sm font-medium text-gray-900">{item.service}</div>
-                      <div className="text-xs text-gray-600">"{item.feedback}"</div>
-                      <div className="text-xs text-gray-500 flex items-center mt-1">
-                        <Star className="h-3 w-3 text-yellow-400 mr-1" />
-                        {item.rating}/5 - {item.user}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                         {/* Recent Feedback Box - Side column */}
+             <div className="lg:col-span-1">
+               <div className="bg-white shadow rounded-lg p-6">
+                 <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Feedback</h3>
+                 <div className="space-y-3">
+                   <div className="text-sm text-gray-500 text-center py-4">
+                     Feedback data will be loaded from API
+                   </div>
+                 </div>
+               </div>
+             </div>
           </div>
 
           {/* Combo Packages - Same width as Basic packages */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
                         <div className="lg:col-span-3">
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                  <h3 className="text-lg font-medium text-gray-900">Combo Packages</h3>
+              <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Combo Packages</h3>
+                      <p className="text-sm text-gray-600 mt-1">Bundled packages with special pricing</p>
+                    </div>
                   <button
-                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
                     onClick={() => setShowAddComboModal(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Combo Package
+                      Add Combo
                   </button>
+                  </div>
                 </div>
                 
-                {/* Search and Filter Section for Combo */}
-                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    {/* Search */}
-                    <div className="flex-1">
+                {/* Advanced Filters */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
                       <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
                         <input
                           type="text"
-                          placeholder="Search combo packages or codes..."
+                        placeholder="Search by combo name, code, or description..."
                           value={comboSearchTerm}
                           onChange={(e) => setComboSearchTerm(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
                         />
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
                         </div>
-                      </div>
+                    
+                    {/* Filter Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {/* Suggested Filter */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                        <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white">
+                          <option value="all">All Types</option>
+                          <option value="suggested">Suggested</option>
+                          <option value="custom">Custom</option>
+                        </select>
                     </div>
                     
-                    {/* Status Filter */}
-                    <div className="w-full md:w-48">
+                      {/* Category Filter */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
                       <select
                         value={comboStatusFilter}
                         onChange={(e) => setComboStatusFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Pending">Pending</option>
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="Dài hạn">Long Term</option>
+                          <option value="Ngắn hạn">Short Term</option>
+                          <option value="Theo sự kiện">Event Based</option>
+                        </select>
+                      </div>
+                      
+                      {/* Level Filter */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Level</label>
+                        <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white">
+                          <option value="all">All Levels</option>
+                          <option value="Tiêu chuẩn">Standard</option>
+                          <option value="Cơ bản">Basic</option>
+                          <option value="Cao cấp">Premium</option>
+                        </select>
+                      </div>
+                      
+                      {/* Discount Range */}
+                      <div className="md:col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Discount</label>
+                        <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white">
+                          <option value="all">All Discounts</option>
+                          <option value="0-10">0% - 10%</option>
+                          <option value="10-20">10% - 20%</option>
+                          <option value="20-100">Above 20%</option>
                       </select>
                     </div>
                     
                     {/* Clear Filters */}
+                      <div className="md:col-span-1 flex items-end">
                     {(comboSearchTerm || comboStatusFilter !== "all") && (
                       <button
                         onClick={() => {
                           setComboSearchTerm("")
                           setComboStatusFilter("all")
                         }}
-                        className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="w-full px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                       >
-                        Clear Filters
+                            Clear All
                       </button>
                     )}
                   </div>
                   
-                  {/* Results count */}
-                  <div className="mt-3 text-sm text-gray-600">
-                    Showing {pagedComboPlans.length} of {filteredComboPlans.length} combo packages
-                    {comboSearchTerm && ` for "${comboSearchTerm}"`}
+                      {/* Results Info */}
+                      <div className="md:col-span-1 flex items-end">
+                        <div className="text-xs text-gray-500">
+                          {filteredComboPlans.length} of {comboPlans.length} combos
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
-                <DataTable columns={serviceColumns} data={pagedComboPlans} actions={renderComboActions} />
-                {/* Phân trang dưới bảng */}
-                <div className="flex justify-end mt-2">
-                  <nav className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
+                {/* Custom Table */}
+                <div className="overflow-hidden">
+                  {pagedComboPlans.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Combo Package</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {pagedComboPlans.map((combo, index) => (
+                            <tr 
+                              key={index}
+                              onClick={() => { setSelectedCombo(combo.raw); setShowComboDetailModal(true) }}
+                              className="hover:bg-purple-50 cursor-pointer transition-colors duration-150"
+                            >
+                              <td className="px-6 py-4">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{combo.service}</div>
+                                  <div className="text-sm text-gray-500 font-mono">{combo.raw.code}</div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  combo.raw.isSuggested 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {combo.raw.isSuggested ? 'Suggested' : 'Custom'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="text-sm text-gray-900">
+                                  {combo.raw.packageDurations && combo.raw.packageDurations.length > 0 
+                                    ? combo.raw.packageDurations.map((d: any, idx: number) => {
+                                        const duration = durations.find((dur: any) => dur.id === d.durationId);
+                                        return duration ? duration.description : `${d.durationId} Month`;
+                                      }).join(', ')
+                                    : 'N/A'
+                                  }
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-semibold text-gray-900">{combo.price}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {combo.raw.discountRate > 0 ? (
+                                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                    -{(combo.raw.discountRate * 100).toFixed(0)}%
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-gray-400">No discount</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center space-x-1">
+                                  <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700">
+                                    {combo.raw.basicPlanIds?.filter((id: string) => {
+                                      const plan = basicPlans.find((b: any) => b.id === id);
+                                      return plan?.serviceType === 0;
+                                    }).length || 0} Acc
+                                  </span>
+                                  <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-700">
+                                    {combo.raw.basicPlanIds?.filter((id: string) => {
+                                      const plan = basicPlans.find((b: any) => b.id === id);
+                                      return plan?.serviceType === 1;
+                                    }).length || 0} Life
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2" />
+                      </svg>
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No combo packages found</h3>
+                      <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filter criteria.</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Pagination */}
+                {comboTotalPages > 1 && (
+                  <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex items-center justify-between">
+                    <div className="text-sm text-gray-700">
+                      Showing {((comboCurrentPage - 1) * comboPageSize) + 1} to {Math.min(comboCurrentPage * comboPageSize, filteredComboPlans.length)} of {filteredComboPlans.length} results
+                    </div>
+                    <nav className="inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     <button
                       disabled={comboCurrentPage === 1}
                       onClick={() => setComboCurrentPage(p => Math.max(1, p - 1))}
-                      className="relative inline-flex items-center px-2 py-1 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        className="relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Prev
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Previous
                     </button>
-                    {[...Array(comboTotalPages)].map((_, idx) => (
+                      {[...Array(Math.min(5, comboTotalPages))].map((_, idx) => {
+                        const pageNum = comboCurrentPage <= 3 ? idx + 1 : 
+                                       comboCurrentPage >= comboTotalPages - 2 ? comboTotalPages - 4 + idx :
+                                       comboCurrentPage - 2 + idx;
+                        return (
                       <button
-                        key={idx}
-                        onClick={() => setComboCurrentPage(idx + 1)}
-                        className={`relative inline-flex items-center px-3 py-1 border-t border-b border-gray-300 text-sm font-medium ${comboCurrentPage === idx + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        {idx + 1}
+                            key={pageNum}
+                            onClick={() => setComboCurrentPage(pageNum)}
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              comboCurrentPage === pageNum 
+                                ? 'z-10 bg-purple-50 border-purple-500 text-purple-600' 
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNum}
                       </button>
-                    ))}
+                        );
+                      })}
                     <button
                       disabled={comboCurrentPage === comboTotalPages}
                       onClick={() => setComboCurrentPage(p => Math.min(comboTotalPages, p + 1))}
-                      className="relative inline-flex items-center px-2 py-1 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        className="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Next
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                     </button>
                   </nav>
                 </div>
+                )}
               </div>
             </div>
             {/* Empty space to maintain alignment */}
             <div className="lg:col-span-1"></div>
           </div>
 
-          {/* Service Categories */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">NextLiving Services</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-blue-900">House Cleaning</div>
-                    <div className="text-sm text-blue-700">245 active users</div>
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-blue-900">Maintenance</div>
-                    <div className="text-sm text-blue-700">189 active users</div>
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-blue-900">Meal Planning</div>
-                    <div className="text-sm text-blue-700">203 active users</div>
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
-                </div>
-              </div>
-            </div>
+                     {/* Service Categories */}
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="bg-white shadow rounded-lg p-6">
+               <h3 className="text-lg font-medium text-gray-900 mb-4">NextLiving Services</h3>
+               <div className="space-y-3">
+                 <div className="text-sm text-gray-500 text-center py-4">
+                   Service data will be loaded from API
+                 </div>
+               </div>
+             </div>
 
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">NextAcademy Courses</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-green-900">Coding Bootcamp</div>
-                    <div className="text-sm text-green-700">156 active users</div>
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-green-900">Language Exchange</div>
-                    <div className="text-sm text-green-700">98 active users</div>
-                  </div>
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Maintenance</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-green-900">Financial Literacy</div>
-                    <div className="text-sm text-green-700">134 active users</div>
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
-                </div>
-              </div>
-            </div>
-          </div>
+             <div className="bg-white shadow rounded-lg p-6">
+               <h3 className="text-lg font-medium text-gray-900 mb-4">NextAcademy Courses</h3>
+               <div className="space-y-3">
+                 <div className="text-sm text-gray-500 text-center py-4">
+                   Course data will be loaded from API
+                 </div>
+               </div>
+             </div>
+           </div>
           {/* Modal Add Basic Package */}
           {showAddModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -985,17 +1181,19 @@ export default function CreatePackageDashboard() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       <div className="flex flex-col">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Package Type *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Service Type *</label>
                         <select 
-                          name="basicPlanTypeId" 
-                          value={form.basicPlanTypeId} 
+                          name="nextUServiceId" 
+                          value={form.nextUServiceId} 
                           onChange={handleChange} 
                           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           required
                         >
-                          <option value="">Select Package Type</option>
-                          {basicPlanTypes.map((b: any) => (
-                            <option key={b.id} value={b.id}>{b.name}</option>
+                          <option value="">Select Service Type</option>
+                          {nextUServices.map((b: any) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name} ({b.serviceType === 0 ? 'Booking' : 'Non-booking'}) - {b.ecosystemName}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1047,7 +1245,7 @@ export default function CreatePackageDashboard() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {/* Room Type for Accommodation */}
-                      {selectedPlanType && selectedPlanType.code === "ACCOMMODATION" && (
+                      {selectedNextUService && selectedNextUService.serviceType === 0 && (
                         <div className="flex flex-col">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Room Type *</label>
                           <select 
@@ -1074,8 +1272,8 @@ export default function CreatePackageDashboard() {
                         </div>
                       )}
 
-                      {/* Entitlement for Life Activities */}
-                      {selectedPlanType && selectedPlanType.code === 'LIFEACTIVITIES' && (
+                      {/* Entitlement for Lifestyle Services */}
+                      {selectedNextUService && selectedNextUService.serviceType === 1 && (
                         <div className="flex flex-col">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Entitlement *</label>
                           <select 
@@ -1159,6 +1357,14 @@ export default function CreatePackageDashboard() {
                             <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
                           ))}
                         </select>
+                        {/* Combo note for 6 or 12 months */}
+                        {selectedDurationIds[0] && durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value >= 6 && (
+                          <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                            <div className="text-xs text-blue-700 font-medium">
+                              📦 This duration is suitable for Combo packages
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1177,29 +1383,29 @@ export default function CreatePackageDashboard() {
                           {finalPrice > 0 ? finalPrice.toLocaleString() + "₫" : "0₫"}
                         </div>
                         {finalPrice > 0 && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {selectedPlanType?.code === "ACCOMMODATION" && selectedRoom && (
-                              <span>Based on {selectedRoom.roomTypeName} × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
-                            )}
-                            {selectedPlanType?.code === 'LIFEACTIVITIES' && selectedEntitlementId && (
-                              <span>Based on selected entitlement × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
-                            )}
-                          </div>
+                                                  <div className="text-xs text-gray-500 mt-1">
+                          {selectedNextUService?.serviceType === 0 && selectedRoom && (
+                            <span>Based on {selectedRoom.roomTypeName} × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
+                          )}
+                          {selectedNextUService?.serviceType === 1 && selectedEntitlementId && (
+                            <span>Based on selected entitlement × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
+                          )}
+                        </div>
                         )}
                       </div>
                       
                       <div className="bg-white rounded-lg p-3 border border-blue-200">
                         <div className="text-sm text-gray-600 mb-1">Package Details</div>
                         <div className="space-y-0.5 text-xs">
-                          <div><span className="font-medium">Type:</span> {selectedPlanType?.name || 'Not selected'}</div>
+                          <div><span className="font-medium">Type:</span> {selectedNextUService?.name || 'Not selected'}</div>
                           <div><span className="font-medium">Level:</span> {form.planLevelId ? planLevels.find((l: any) => l.id === form.planLevelId)?.name : 'Not selected'}</div>
                           <div><span className="font-medium">Target:</span> {form.targetAudienceId ? planTargetAudiences.find((a: any) => a.id === form.targetAudienceId)?.name : 'Not selected'}</div>
                           <div><span className="font-medium">Category:</span> {form.basicPlanCategoryId ? planCategories.find((c: any) => c.id === Number(form.basicPlanCategoryId))?.name : 'Not selected'}</div>
                           <div><span className="font-medium">Duration:</span> {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'Not selected'}</div>
-                          {selectedPlanType?.code === "ACCOMMODATION" && selectedRoom && (
+                          {selectedNextUService?.serviceType === 0 && selectedRoom && (
                             <div><span className="font-medium">Room:</span> {selectedRoom.roomTypeName}</div>
                           )}
-                          {selectedPlanType?.code === 'LIFEACTIVITIES' && selectedEntitlementId && (
+                          {selectedNextUService?.serviceType === 1 && selectedEntitlementId && (
                             <div><span className="font-medium">Service:</span> {entitlements.find((e: any) => e.id === selectedEntitlementId)?.nextUServiceName}</div>
                           )}
                         </div>
@@ -1219,7 +1425,7 @@ export default function CreatePackageDashboard() {
                     <button 
                       type="submit" 
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center text-sm"
-                      disabled={!form.basicPlanTypeId || !form.code || !form.name || !form.planLevelId || !form.targetAudienceId || !form.basicPlanCategoryId || selectedDurationIds.length === 0}
+                      disabled={!form.nextUServiceId || !form.code || !form.name || !form.planLevelId || !form.targetAudienceId || !form.basicPlanCategoryId || selectedDurationIds.length === 0}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Create Basic Package
@@ -1229,141 +1435,173 @@ export default function CreatePackageDashboard() {
               </div>
             </div>
           )}
-          {/* Thêm popup detail */}
+          {/* Basic Package Detail Modal */}
           {showDetailModal && selectedPlan && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">{selectedPlan.name}</h2>
+                      <p className="text-sm text-gray-600 mt-1">{selectedPlan.nextUServiceName} Package • {selectedPlan.code}</p>
+                    </div>
                 <button 
-                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" 
+                      className="text-gray-400 hover:text-gray-600 transition-colors" 
                   onClick={() => setShowDetailModal(false)}
                 >
-                  ×
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                 </button>
-                
-                <div className="mb-4">
-                  <h2 className="text-xl font-bold text-gray-800 mb-1">Basic Package Detail</h2>
-                  <p className="text-sm text-gray-600">Package information and specifications</p>
                 </div>
-
-                {(() => {
-                  const plan = selectedPlan
-                  const hasData = plan.name || plan.basicPlanType || plan.status || plan.price || (plan.planDurations && plan.planDurations.length > 0) || plan.description || plan.locationName || plan.code || (plan.entitlements && plan.entitlements.length > 0)
-                  if (!hasData) return (
-                    <div className="text-center py-8">
-                      <div className="text-gray-400 text-lg mb-2">📋</div>
-                      <div className="text-gray-500 italic">No data available for this package.</div>
                     </div>
-                  )
-                  
-                  return (
-                    <div className="space-y-5">
-                      {/* Pricing Card - Normal display */}
-                      {(plan.price !== undefined && plan.price !== null && plan.price !== '') && (
-                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                          <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">💰</span>
-                            Pricing Information
-                          </h3>
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-start">
-                              <span className="text-sm font-medium text-gray-600">Price:</span>
-                              <span className="text-sm text-gray-800 font-semibold text-right">
-                                {Number(plan.price).toLocaleString('vi-VN')}₫
-                              </span>
-                            </div>
-                            {plan.planDurations && plan.planDurations.length > 0 && (
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm font-medium text-gray-600">Duration:</span>
-                                <span className="text-sm text-gray-800 text-right">
-                                  {plan.planDurations.map((d: any) => `${d.planDurationValue} ${d.planDurationUnit}`).join(', ')}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
 
-                      {/* Basic Info Card */}
-                      <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-                          <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">📦</span>
-                          Package Details
-                        </h3>
-                        <div className="space-y-3">
-                          {plan.name && (
-                            <div className="flex justify-between items-start">
-                              <span className="text-sm font-medium text-gray-600">Name:</span>
-                              <span className="text-sm text-gray-800 font-semibold text-right max-w-[60%] break-words">{plan.name}</span>
-                            </div>
-                          )}
-                          {plan.code && (
-                            <div className="flex justify-between items-start">
-                              <span className="text-sm font-medium text-gray-600">Code:</span>
-                              <span className="text-sm text-gray-800 font-mono text-right max-w-[60%] break-all">{plan.code}</span>
-                            </div>
-                          )}
-                          {plan.basicPlanType && (
-                            <div className="flex justify-between items-start">
-                              <span className="text-sm font-medium text-gray-600">Type:</span>
-                              <span className="text-sm text-gray-800 text-right max-w-[60%] break-words">{plan.basicPlanType}</span>
-                            </div>
-                          )}
-                          {plan.status && (
-                            <div className="flex justify-between items-start">
-                              <span className="text-sm font-medium text-gray-600">Status:</span>
-                              <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                                plan.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {plan.status}
+                {/* Content */}
+                <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Left Column */}
+                    <div className="space-y-4">
+                      {/* Package Overview */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Package Overview</h3>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Package Code:</span>
+                            <span className="text-sm font-mono text-gray-900">{selectedPlan.code}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Type:</span>
+                            <span className="text-sm text-gray-900">{selectedPlan.nextUServiceName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Verify Purchase:</span>
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${selectedPlan.verifyBuy ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {selectedPlan.verifyBuy ? 'Required' : 'Not Required'}
                               </span>
                             </div>
-                          )}
                         </div>
                       </div>
 
-                      {/* Location Card */}
-                      {plan.locationName && (
-                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">📍</span>
-                            Location
-                          </h3>
-                          <div className="text-sm text-gray-800 font-medium">{plan.locationName}</div>
-                        </div>
-                      )}
-
-                      {/* Description Card */}
-                      {plan.description && (
-                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">📝</span>
-                            Description
-                          </h3>
-                          <div className="text-sm text-gray-700 leading-relaxed max-h-32 overflow-y-auto bg-gray-50 rounded p-3">
-                            {plan.description}
+                      {/* Pricing */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Pricing Information</h3>
+                        <div className="space-y-2">
+                                                     <div className="flex justify-between items-center">
+                             <span className="text-sm text-gray-600">Estimated Website Price (Staff View):</span>
+                             <span className="text-lg font-bold text-blue-700">
+                               {selectedPlan.price ? Number(selectedPlan.price).toLocaleString('vi-VN') + '₫' : 'N/A'}
+                                 </span>
+                               </div>
+                          {selectedPlan.planDurations && selectedPlan.planDurations.length > 0 && (
+                            <div className="pt-2 border-t border-blue-200">
+                              <span className="text-sm text-gray-600 block mb-2">Duration:</span>
+                              {selectedPlan.planDurations.map((d: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-700">{d.planDurationDescription}</span>
+                                  {d.discountRate > 0 && (
+                                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                                      {(d.discountRate * 100).toFixed(0)}% OFF
+                                    </span>
+                            )}
                           </div>
+                              ))}
+                        </div>
+                      )}
+                        </div>
+                      </div>
+
+                      {/* Classification */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Classification</h3>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Category:</span>
+                            <span className="text-sm text-gray-900">{selectedPlan.planCategoryName}</span>
+                            </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Level:</span>
+                            <span className="text-sm text-gray-900">{selectedPlan.planLevelName}</span>
+                            </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Target Audience:</span>
+                            <span className="text-sm text-gray-900">{selectedPlan.targetAudienceName}</span>
+                            </div>
+                            </div>
+                        </div>
+                      </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-4">
+                      {/* Property */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Property</h3>
+                        <div className="text-sm text-gray-700">
+                          {selectedPlan.propertyName}
+                        </div>
+                      </div>
+
+                      {/* Accommodations */}
+                      {selectedPlan.acomodations && selectedPlan.acomodations.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Room Details</h3>
+                          {selectedPlan.acomodations.map((acc: any, idx: number) => (
+                            <div key={idx} className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Room Type:</span>
+                                <span className="text-sm font-medium text-gray-900">{acc.roomType}</span>
+                          </div>
+                              {acc.accomodationDescription && (
+                                <div>
+                                  <span className="text-sm text-gray-600">Description:</span>
+                                  <p className="text-sm text-gray-700 mt-1">{acc.accomodationDescription}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
 
-                      {/* Entitlements Card */}
-                      {plan.entitlements && plan.entitlements.length > 0 && (
-                        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                            <span className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">🎯</span>
-                            Entitlements
-                          </h3>
+                      {/* Services */}
+                      {selectedPlan.entitlements && selectedPlan.entitlements.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Included Services</h3>
                           <div className="space-y-2">
-                            {plan.entitlements.map((e: any, idx: number) => (
-                              <div key={idx} className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-                                {e.nextUServiceName || e.entitlementId || e.entitlementRuleId || 'Unknown entitlement'}
+                            {selectedPlan.entitlements.map((ent: any, idx: number) => (
+                              <div key={idx} className="flex items-center space-x-2">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="text-sm text-gray-700">{ent.nextUSerName}</span>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
+
+                      {/* Description */}
+                      {selectedPlan.description && selectedPlan.description.trim() && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Description</h3>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            {selectedPlan.description}
+                          </p>
                     </div>
-                  )
-                })()}
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                  <div className="text-xs text-gray-500">
+                    Last updated: {new Date().toLocaleDateString('vi-VN')}
+                  </div>
+                  <button 
+                    onClick={() => setShowDetailModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1413,6 +1651,18 @@ export default function CreatePackageDashboard() {
                           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           placeholder="Enter combo name"
                           required
+                        />
+                      </div>
+                      
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <textarea 
+                          name="description" 
+                          value={formCombo.description} 
+                          onChange={e => setFormCombo(f => ({ ...f, description: e.target.value }))} 
+                          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Enter package description"
+                          rows={2}
                         />
                       </div>
                       
@@ -1488,10 +1738,13 @@ export default function CreatePackageDashboard() {
                           required
                         >
                           <option value="">Select Duration</option>
-                          {durations.map((d: any) => (
+                          {durations.filter((d: any) => d.value >= 6).map((d: any) => (
                             <option key={d.id} value={d.id}>{`${d.value} ${d.unit}`}</option>
                           ))}
                         </select>
+                        <div className="mt-2 text-xs text-gray-500">
+                          💡 Combo packages are only available for 6 or 12 months duration
+                        </div>
                       </div>
                       
                       {/* Discount Rate */}
@@ -1511,7 +1764,8 @@ export default function CreatePackageDashboard() {
                     </div>
                   </div>
 
-                  {/* Step 3: Package Selection */}
+                  {/* Step 3: Package Selection - Only show when duration is selected */}
+                  {comboDurationId && (
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
                       <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
@@ -1609,6 +1863,7 @@ export default function CreatePackageDashboard() {
                       </div>
                     </div>
                   </div>
+                  )}
 
                   {/* Step 4: Pricing Summary */}
                   {comboDurationId && comboPriceInfo.details.length > 0 && (
@@ -1621,15 +1876,34 @@ export default function CreatePackageDashboard() {
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {/* Total Price Display */}
                         <div className="bg-white rounded-lg p-4 border border-blue-200">
+                          <div className="space-y-2">
+                            {formCombo.discountRate > 0 ? (
+                              <>
+                                <div>
+                                  <div className="text-sm text-gray-600">Original Price</div>
+                                  <div className="text-lg text-gray-500 line-through">
+                                    {comboPriceInfo.total.toLocaleString()}₫
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-gray-600">Final Price</div>
+                                  <div className="text-2xl font-bold text-green-600">
+                                    {(comboPriceInfo.total * (1 - formCombo.discountRate / 100)).toLocaleString()}₫
+                                  </div>
+                                  <div className="text-xs text-red-600 font-medium">
+                                    Save {(comboPriceInfo.total * formCombo.discountRate / 100).toLocaleString()}₫ ({formCombo.discountRate}% OFF)
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <>
                           <div className="text-sm text-gray-600 mb-1">Total Package Price</div>
                           <div className="text-2xl font-bold text-blue-600">
                             {comboPriceInfo.total.toLocaleString()}₫
                           </div>
-                          {formCombo.discountRate > 0 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              <span className="text-blue-600">Discount: {formCombo.discountRate}%</span>
-                            </div>
+                              </>
                           )}
+                          </div>
                         </div>
                         
                         {/* Package Details */}
@@ -1637,7 +1911,7 @@ export default function CreatePackageDashboard() {
                           <div className="text-sm text-gray-600 mb-2">Selected Packages</div>
                           <div className="space-y-1 text-xs">
                             <div><span className="font-medium">Accommodation:</span> {selectedComboBasic.accommodation ? basicPlans.find((b: any) => b.id === selectedComboBasic.accommodation)?.name : 'Not selected'}</div>
-                            <div><span className="font-medium">Life Activities:</span> {selectedComboBasic.lifeActivities.length} package(s)</div>
+                            <div><span className="font-medium">Lifestyle Services:</span> {selectedComboBasic.lifeActivities.length} package(s)</div>
                             <div><span className="font-medium">Duration:</span> {comboDurationId ? durations.find((d: any) => String(d.id) === String(comboDurationId))?.value + ' ' + durations.find((d: any) => String(d.id) === String(comboDurationId))?.unit : 'Not selected'}</div>
                             <div><span className="font-medium">Level:</span> {formCombo.planLevelId ? planLevels.find((l: any) => l.id === formCombo.planLevelId)?.name : 'Not selected'}</div>
                             <div><span className="font-medium">Category:</span> {formCombo.basicPlanCategoryId ? planCategories.find((c: any) => c.id === Number(formCombo.basicPlanCategoryId))?.name : 'Not selected'}</div>
@@ -1726,13 +2000,45 @@ export default function CreatePackageDashboard() {
       <h3 className="text-lg font-bold mb-4">Chọn Accommodation</h3>
       <input type="text" placeholder="Tìm kiếm..." className="border rounded px-3 py-2 mb-4 w-full" value={searchAccommodation} onChange={e => setSearchAccommodation(e.target.value)} />
       <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
-        {basicPlans.filter((b: any) => b.basicPlanTypeCode === 'ACCOMMODATION' && b.name.toLowerCase().includes(searchAccommodation.toLowerCase())).map((b: any) => (
+        {(() => {
+          const filteredPlans = basicPlans.filter((b: any) => {
+            // Filter by accommodation type and search term
+            const matchesType = b.serviceType === 0;
+            const matchesSearch = b.name.toLowerCase().includes(searchAccommodation.toLowerCase());
+            
+            // Filter by duration - only show packages with matching duration
+            let matchesDuration = false;
+            if (comboDurationId && b.planDurations && b.planDurations.length > 0) {
+              matchesDuration = b.planDurations.some((pd: any) => 
+                String(pd.planDurationId) === String(comboDurationId)
+              );
+            }
+            
+            return matchesType && matchesSearch && matchesDuration;
+          });
+          
+          if (filteredPlans.length === 0) {
+            const selectedDuration = durations.find((d: any) => String(d.id) === String(comboDurationId));
+            return (
+              <div className="text-center py-4 text-gray-500">
+                <div className="text-sm">No accommodation packages found</div>
+                {selectedDuration && (
+                  <div className="text-xs mt-1">
+                    for {selectedDuration.value} {selectedDuration.unit} duration
+                  </div>
+                )}
+              </div>
+            );
+          }
+          
+          return filteredPlans.map((b: any) => (
           <button key={b.id} type="button" className={`flex flex-col items-start border rounded p-2 hover:bg-blue-50 ${selectedComboBasic.accommodation === b.id ? 'border-blue-500 bg-blue-50' : ''}`} onClick={() => { setSelectedComboBasic(prev => ({ ...prev, accommodation: b.id })); setShowSelectAccommodation(false) }}>
             <span className="font-medium text-blue-900">{b.name}</span>
             <span className="text-xs text-gray-500">Giá: {b.price?.toLocaleString()}₫</span>
             <span className="text-xs text-gray-500">Duration: {b.planDurations && b.planDurations[0] ? `${b.planDurations[0].planDurationValue} ${b.planDurations[0].planDurationUnit}` : '-'}</span>
           </button>
-        ))}
+        ));
+        })()}
       </div>
     </div>
   </div>
@@ -1745,7 +2051,38 @@ export default function CreatePackageDashboard() {
       <h3 className="text-lg font-bold mb-4">Chọn Life Activities (2-3)</h3>
       <input type="text" placeholder="Tìm kiếm..." className="border rounded px-3 py-2 mb-4 w-full" value={searchLife} onChange={e => setSearchLife(e.target.value)} />
       <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
-        {basicPlans.filter((b: any) => b.basicPlanTypeCode === 'LIFEACTIVITIES' && b.name.toLowerCase().includes(searchLife.toLowerCase())).map((b: any) => {
+        {(() => {
+          const filteredPlans = basicPlans.filter((b: any) => {
+            // Filter by lifestyle services type and search term
+            const matchesType = b.serviceType === 1;
+            const matchesSearch = b.name.toLowerCase().includes(searchLife.toLowerCase());
+            
+            // Filter by duration - only show packages with matching duration
+            let matchesDuration = false;
+            if (comboDurationId && b.planDurations && b.planDurations.length > 0) {
+              matchesDuration = b.planDurations.some((pd: any) => 
+                String(pd.planDurationId) === String(comboDurationId)
+              );
+            }
+            
+            return matchesType && matchesSearch && matchesDuration;
+          });
+          
+          if (filteredPlans.length === 0) {
+            const selectedDuration = durations.find((d: any) => String(d.id) === String(comboDurationId));
+            return (
+              <div className="text-center py-4 text-gray-500">
+                <div className="text-sm">No life activities packages found</div>
+                {selectedDuration && (
+                  <div className="text-xs mt-1">
+                    for {selectedDuration.value} {selectedDuration.unit} duration
+                  </div>
+                )}
+              </div>
+            );
+          }
+          
+          return filteredPlans.map((b: any) => {
           const checked = selectedComboBasic.lifeActivities.includes(b.id)
           return (
             <button key={b.id} type="button" className={`flex flex-col items-start border rounded p-2 hover:bg-green-50 ${checked ? 'border-green-500 bg-green-50' : ''}`} onClick={() => {
@@ -1758,8 +2095,9 @@ export default function CreatePackageDashboard() {
               <span className="text-xs text-gray-500">Duration: {b.planDurations && b.planDurations[0] ? `${b.planDurations[0].planDurationValue} ${b.planDurations[0].planDurationUnit}` : '-'}</span>
               {checked && <span className="text-xs text-green-700">Đã chọn</span>}
             </button>
-          )
-        })}
+          );
+        });
+        })()}
       </div>
       <div className="mt-4 flex justify-end">
         <button type="button" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-medium" onClick={() => setShowSelectLife(false)}>Xong</button>
@@ -1767,24 +2105,271 @@ export default function CreatePackageDashboard() {
     </div>
   </div>
 )}
-          {/* Thêm popup detail combo */}
+          {/* Combo Package Detail Modal */}
           {showComboDetailModal && selectedCombo && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg relative animate-fade-in">
-                <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl" onClick={() => setShowComboDetailModal(false)}>&times;</button>
-                <h2 className="text-2xl font-bold mb-4 text-blue-700">Combo Package Detail</h2>
-                <div className="space-y-2 text-gray-700">
-                  <div><b>Combo:</b> {selectedCombo.name}</div>
-                  <div><b>Code:</b> {selectedCombo.code}</div>
-                  <div><b>Discount Rate:</b> {selectedCombo.discountRate}</div>
-                  <div><b>Level:</b> {planLevels.find(l => l.id === selectedCombo.planLevelId)?.name || '-'}</div>
-                  <div><b>Basic Packages:</b> {(selectedCombo.basicPlanIds || []).map((id: string) => basicPlans.find((b: any) => b.id === id)?.name).join(', ')}</div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">{selectedCombo.name}</h2>
+                      <p className="text-sm text-gray-600 mt-1">Combo Package • {selectedCombo.code} • {selectedCombo.isSuggested ? 'Suggested' : 'Custom'}</p>
+                </div>
+                    <button 
+                      className="text-gray-400 hover:text-gray-600 transition-colors" 
+                      onClick={() => setShowComboDetailModal(false)}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column - Pricing */}
+                    <div className="lg:col-span-1">
+                      <div className="space-y-4">
+                        {/* Pricing Summary */}
+                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Pricing Summary</h3>
+                          <div className="space-y-3">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-green-700">
+                                {selectedCombo.totalPrice ? Number(selectedCombo.totalPrice).toLocaleString('vi-VN') + '₫' : 'N/A'}
+                              </div>
+                              <div className="text-xs text-green-600">Final Price</div>
+                            </div>
+                            {selectedCombo.discountRate > 0 && (
+                              <div className="text-center pt-2 border-t border-green-200">
+                                <div className="text-lg font-semibold text-red-600">
+                                  -{(selectedCombo.discountRate * 100).toFixed(0)}%
+                                </div>
+                                <div className="text-xs text-red-500">Discount Applied</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Package Overview */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Package Overview</h3>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Package Code:</span>
+                              <span className="text-sm font-mono text-gray-900">{selectedCombo.code}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Verify Purchase:</span>
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${selectedCombo.verifyBuy ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {selectedCombo.verifyBuy ? 'Required' : 'Not Required'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Suggested:</span>
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${selectedCombo.isSuggested ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {selectedCombo.isSuggested ? 'Yes' : 'No'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        {selectedCombo.description && selectedCombo.description.trim() && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3">Description</h3>
+                            <p className="text-sm text-gray-700 leading-relaxed">
+                              {selectedCombo.description}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Classification */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Classification</h3>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Category:</span>
+                              <span className="text-sm text-gray-900">{selectedCombo.basicPlanCategoryName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Level:</span>
+                              <span className="text-sm text-gray-900">{selectedCombo.planLevelName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Target Audience:</span>
+                              <span className="text-sm text-gray-900">{selectedCombo.targetAudienceName}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Duration */}
+                        {selectedCombo.packageDurations && selectedCombo.packageDurations.length > 0 && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3">Duration</h3>
+                            {selectedCombo.packageDurations.map((d: any, idx: number) => {
+                              const duration = durations.find((dur: any) => dur.id === d.durationId);
+                              return (
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">Period:</span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {duration ? duration.description : `${d.durationValue || d.durationId} Month`}
+                                    </span>
+                                  </div>
+                                  {d.discountRate > 0 && (
+                                    <div className="flex justify-between">
+                                      <span className="text-sm text-gray-600">Additional Discount:</span>
+                                      <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                                        {(d.discountRate * 100).toFixed(0)}% OFF
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column - Package Details */}
+                    <div className="lg:col-span-2">
+                      {/* Property */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Property</h3>
+                        <div className="text-sm text-gray-700">
+                          {selectedCombo.propertyName}
+                        </div>
+                      </div>
+
+                      {/* Included Packages */}
+                      {selectedCombo.basicPlanIds && selectedCombo.basicPlanIds.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-semibold text-gray-900">Included Packages</h3>
+                            <div className="text-xs text-gray-500">
+                              {selectedCombo.basicPlanIds.length} packages total
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {selectedCombo.basicPlanIds.map((planId: string, idx: number) => {
+                              const basicPlan = basicPlans.find((b: any) => b.id === planId);
+                              if (!basicPlan) return null;
+                              
+                              return (
+                                <div key={idx} className={`rounded-lg p-3 border-2 ${
+                                  basicPlan.serviceType === 0 
+                                    ? 'border-blue-200 bg-blue-50' 
+                                    : 'border-green-200 bg-green-50'
+                                }`}>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                        basicPlan.serviceType === 0
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : 'bg-green-100 text-green-800'
+                                      }`}>
+                                        {basicPlan.nextUServiceName}
+                                      </div>
+                                      <div className="text-xs text-gray-500 font-mono">
+                                        {basicPlan.code}
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <div className="font-medium text-gray-900 text-sm">
+                                        {basicPlan.name}
+                                      </div>
+                                      <div className="text-sm text-gray-600">
+                                        {basicPlan.price ? Number(basicPlan.price).toLocaleString('vi-VN') + '₫' : 'Price not set'}
+                                      </div>
+                                    </div>
+
+                                    {/* Package Duration */}
+                                    {basicPlan.planDurations && basicPlan.planDurations.length > 0 && (
+                                      <div className="text-xs text-gray-500">
+                                        Duration: {basicPlan.planDurations[0].planDurationDescription}
+                                      </div>
+                                    )}
+
+                                    {/* Services for Life Activities */}
+                                    {basicPlan.entitlements && basicPlan.entitlements.length > 0 && (
+                                      <div className="pt-1 border-t border-gray-200">
+                                        <div className="text-xs text-gray-600 mb-1">Services:</div>
+                                        {basicPlan.entitlements.map((ent: any, entIdx: number) => (
+                                          <div key={entIdx} className="text-xs text-gray-700 flex items-center space-x-1">
+                                            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                                            <span>{ent.nextUSerName}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Room details for Accommodation */}
+                                    {basicPlan.acomodations && basicPlan.acomodations.length > 0 && (
+                                      <div className="pt-1 border-t border-gray-200">
+                                        <div className="text-xs text-gray-600 mb-1">Room:</div>
+                                        {basicPlan.acomodations.map((acc: any, accIdx: number) => (
+                                          <div key={accIdx} className="text-xs text-gray-700">
+                                            {acc.roomType}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          {/* Package Type Summary */}
+                          <div className="mt-4 pt-3 border-t border-gray-200 grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Accommodation:</span>
+                              <span className="font-medium text-blue-700">
+                                {selectedCombo.basicPlanIds.filter((id: string) => {
+                                  const plan = basicPlans.find((b: any) => b.id === id);
+                                  return plan?.serviceType === 0;
+                                }).length} package(s)
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Lifestyle Services:</span>
+                              <span className="font-medium text-green-700">
+                                {selectedCombo.basicPlanIds.filter((id: string) => {
+                                  const plan = basicPlans.find((b: any) => b.id === id);
+                                  return plan?.serviceType === 1;
+                                }).length} package(s)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                  <div className="text-xs text-gray-500">
+                    Combo Package • Last updated: {new Date().toLocaleDateString('vi-VN')}
+                  </div>
+                  <button 
+                    onClick={() => setShowComboDetailModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
           )}
         </main>
-      </div>
-    </RoleLayout>
-  )
+      </>
+    )
 }

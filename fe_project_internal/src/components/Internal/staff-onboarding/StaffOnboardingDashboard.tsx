@@ -2,30 +2,15 @@
 
 import { useEffect, useState } from "react"
 import api from "../../../utils/axiosConfig"; 
-import { UserPlus, CreditCard, Users, Package, Calendar, Mail, CheckCircle } from "lucide-react"
-import Sidebar from "../shared/sidebar"
+import { UserPlus, Users, Package, Mail, CheckCircle } from "lucide-react"
 import TopNav from "../shared/topNav"
 import DashboardCard from "../shared/dashboardCard"
-import RoleLayout from "../shared/roleLayout"
-import type { NavigationItem, User } from "../types"
+import type { User } from "../types"
 import { format } from "date-fns"
 
-const navigation: NavigationItem[] = [
-  { name: "Applications", href: "/staff-onboarding", icon: UserPlus, current: true },
-  { name: "Payment Guide", href: "/staff-onboarding/payments", icon: CreditCard },
-  { name: "User Status", href: "/staff-onboarding/status", icon: Users },
-  { name: "Create Packages", href: "/staff-onboarding/packages", icon: Package },
-  { name: "Schedule Events", href: "/staff-onboarding/events", icon: Calendar },
-]
+// Navigation will be provided by the parent component
 
-const mockUser: User = {
-  id: "4",
-  name: "Emily Chen",
-  email: "emily@nextu.com",
-  role: "staff_onboarding",
-  location: "San Francisco, CA",
-  avatar: "/placeholder.svg?height=32&width=32",
-}
+// Mock user data removed - will be provided by authentication system
 
 export default function StaffOnboardingDashboard() {
   const [pending, setPending] = useState<any[]>([])
@@ -96,10 +81,8 @@ export default function StaffOnboardingDashboard() {
   }
 
   return (
-    <RoleLayout>
-      <Sidebar navigation={navigation} title="Next U" userRole="Staff Onboarding" />
-      <div className="lg:pl-64 flex flex-col flex-1">
-        <TopNav user={mockUser} title="Onboarding Management" />
+    <>
+      <TopNav user={{ id: "", name: "", email: "", role: "", location: "", avatar: "" }} title="Onboarding Management" />
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <DashboardCard title="Pending Applications" value={pending.length.toString()} change="" changeType="neutral" icon={UserPlus} />
@@ -171,7 +154,6 @@ export default function StaffOnboardingDashboard() {
             </div>
           )}
         </main>
-      </div>
-    </RoleLayout>
-  )
+      </>
+    )
 }

@@ -26,7 +26,7 @@ export const roleNavigations = {
   
   admin: [
     { name: "Dashboard", href: "/admin", icon: Home },
-    { name: "Room Management", href: "/admin/rooms", icon: Building },
+    { name: "Eco Management", href: "/admin/rooms", icon: Building },
     { name: "Event Approval", href: "/admin/event-approval", icon: Calendar },
    
   
@@ -40,10 +40,9 @@ export const roleNavigations = {
   ],
   
   staff_onboarding: [
-    { name: "Dashboard", href: "/staff-onboarding", icon: Home },
-    { name: "New Staff", href: "/staff-onboarding/new", icon: UserPlus },
-    { name: "Packages", href: "/staff-onboarding/packages", icon: Package },
-    { name: "Progress Tracking", href: "/staff-onboarding/progress", icon: CheckCircle },
+    { name: "Applications", href: "/staff-onboarding", icon: UserPlus },
+    { name: "User Status", href: "/staff-onboarding/status", icon: Users },
+    { name: "Create Packages", href: "/staff-onboarding/packages", icon: Package },
   ],
   
   staff_service: [

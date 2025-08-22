@@ -11,13 +11,7 @@ import type { NavigationItem, User, TableColumn, CreateAccountData } from "../ty
 import api from "../../../utils/axiosConfig"
 import { getNavigationForRole } from "../navigation"
 
-const staffColumns: TableColumn[] = [
-  { key: "username", label: "Name", sortable: true },
-  { key: "email", label: "Email", sortable: true },
-  { key: "roleName", label: "Role", sortable: true },
-  { key: "locationName", label: "Location", sortable: true },
-  { key: "status", label: "Status" },
-]
+
 
 const availableStaffRoles = ["Manager", "Staff_Onboarding", "Staff_Services", "Staff_Content"]
 

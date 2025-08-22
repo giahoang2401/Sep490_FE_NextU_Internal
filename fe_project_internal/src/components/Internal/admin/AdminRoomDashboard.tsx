@@ -88,6 +88,7 @@ interface AccommodationOption {
   id: string;
   roomTypeId: number;
   roomTypeName: string;
+  accmodationOptionName: string;
   locationId: string | null;
   locationName: string | null;
   nextServiceId: string;
@@ -174,6 +175,7 @@ export default function AdminRoomDashboard() {
   
   // Form states for EntitlementRule
   const [entitlementRuleForm, setEntitlementRuleForm] = useState({
+    entittlementRuleName: "",
     nextUServiceId: "",
     price: 0,
     creditAmount: 0,
@@ -278,50 +280,15 @@ export default function AdminRoomDashboard() {
     }
   }, [])
 
-  // Fetch data
+  // Fetch data only once when component mounts
   useEffect(() => {
+    console.log('🔄 Component mounted - Fetching data once...');
     fetchOptions();
     fetchRooms();
     fetchRoomSelectOptions();
     fetchNextUServices();
     fetchEcosystems();
     fetchEntitlementRules();
-  }, []);
-
-  // Refresh data when tab becomes visible (user returns to tab)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log("Tab became visible, refreshing data...");
-        fetchNextUServices();
-        fetchEcosystems();
-        fetchEntitlementRules();
-      }
-    };
-
-    const handleFocus = () => {
-      console.log("Window focused, refreshing data...");
-      fetchNextUServices();
-      fetchEcosystems();
-      fetchEntitlementRules();
-    };
-
-    // Thêm interval để refresh dữ liệu định kỳ (mỗi 30 giây)
-    const intervalId = setInterval(() => {
-      console.log("Periodic data refresh...");
-      fetchNextUServices();
-      fetchEcosystems();
-      fetchEntitlementRules();
-    }, 30000);
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      clearInterval(intervalId);
-    };
   }, []);
 
   // Lấy propertyId từ localStorage khi mở modal tạo Room Type
@@ -371,9 +338,8 @@ export default function AdminRoomDashboard() {
   // Lấy danh sách NextUServices khi mở modal tạo Room Type
   useEffect(() => {
     if (showOptionModal) {
-      api.get('/api/membership/NextUServices').then(res => {
-        setNextUServices(res.data.map((s: any) => ({ id: s.id, name: s.name })));
-      }).catch(() => setNextUServices([]));
+      // Không cần refresh API khi mở modal, dữ liệu đã có sẵn
+      console.log('Modal opened, using existing data...');
     }
   }, [showOptionModal]);
 
@@ -423,6 +389,7 @@ export default function AdminRoomDashboard() {
 
   // Fetch NextUServices
   const fetchNextUServices = async () => {
+    console.log('📡 fetchNextUServices called at:', new Date().toLocaleTimeString());
     setLoadingNextUServices(true);
     try {
       const res = await api.get("/api/NextUServices");
@@ -455,6 +422,7 @@ export default function AdminRoomDashboard() {
 
   // Fetch Ecosystems
   const fetchEcosystems = async () => {
+    console.log('📡 fetchEcosystems called at:', new Date().toLocaleTimeString());
     setLoadingEcosystems(true);
     try {
       const res = await api.get("/api/Ecosystems");
@@ -535,11 +503,13 @@ export default function AdminRoomDashboard() {
     e.preventDefault();
     try {
       const requestData = {
-        ...entitlementRuleForm,
+        entittlementRuleName: entitlementRuleForm.entittlementRuleName,
+        nextUServiceId: entitlementRuleForm.nextUServiceId,
         price: Number(entitlementRuleForm.price),
         creditAmount: Number(entitlementRuleForm.creditAmount),
         period: Number(entitlementRuleForm.period),
         limitPerPeriod: Number(entitlementRuleForm.limitPerPeriod),
+        note: entitlementRuleForm.note
       };
 
       console.log("Creating EntitlementRule with data:", requestData);
@@ -549,6 +519,7 @@ export default function AdminRoomDashboard() {
       
       // Reset form
       setEntitlementRuleForm({
+        entittlementRuleName: "",
         nextUServiceId: "",
         price: 0,
         creditAmount: 0,
@@ -571,12 +542,13 @@ export default function AdminRoomDashboard() {
     e.preventDefault();
     try {
       await api.post("/api/membership/AccommodationOptions", {
-        ...optionForm,
-        propertyId: propertyId,
         roomTypeId: Number(optionForm.roomTypeId),
+        accmodationOptionName: optionForm.roomTypeName,
+        propertyId: propertyId,
         nextUServiceId: optionForm.nextUServiceId,
         capacity: Number(optionForm.capacity),
         pricePerNight: Number(optionForm.pricePerNight),
+        description: optionForm.description
       });
       setToast("Room type created successfully!");
       setOptionForm({ roomTypeName: "", roomTypeId: "", nextUServiceId: "", capacity: 1, pricePerNight: 0, description: "" });
@@ -851,12 +823,12 @@ export default function AdminRoomDashboard() {
           {/* Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <DashboardCard 
-              title="Total Rooms" 
+              title="Total Spaces" 
               value={totalRooms} 
               icon={() => <span className="text-2xl">🏠</span>} 
             />
             <DashboardCard 
-              title="Room Types" 
+              title="Space Types" 
               value={totalTypes} 
               icon={() => <span className="text-2xl">📦</span>} 
             />
@@ -957,6 +929,7 @@ export default function AdminRoomDashboard() {
                                              <thead className="bg-gray-50 sticky top-0">
                          <tr>
                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecosystem</th>
                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
                          </tr>
@@ -980,6 +953,15 @@ export default function AdminRoomDashboard() {
                           return (
                             <tr key={service.id} className="hover:bg-gray-50">
                               <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{service.name}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm">
+                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                                  isBooking 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-purple-100 text-purple-800'
+                                }`}>
+                                  {isBooking ? ' Booking' : ' Service'}
+                                </span>
+                              </td>
                               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.ecosystemName}</td>
                               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.propertyName}</td>
                             </tr>
@@ -997,7 +979,7 @@ export default function AdminRoomDashboard() {
               <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Room Types</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Space Types</h3>
                     <p className="text-gray-600 text-xs">Accommodation types</p>
                   </div>
                   <button 
@@ -1028,7 +1010,7 @@ export default function AdminRoomDashboard() {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {options.map((option) => (
                           <tr key={option.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{option.roomTypeName}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{option.accmodationOptionName || option.roomTypeName}</td>
                             <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.capacity}</td>
                             <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.pricePerNight?.toLocaleString()} VND</td>
                             <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-32">{option.description}</td>
@@ -1046,7 +1028,7 @@ export default function AdminRoomDashboard() {
               <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Rooms</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Spaces</h3>
                     <p className="text-gray-600 text-xs">Room instances</p>
                   </div>
                   <button 
@@ -1087,7 +1069,7 @@ export default function AdminRoomDashboard() {
                             <tr key={room.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(room.id)}>
                               <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{room.roomName}</td>
                               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{room.roomCode}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{opt?.roomTypeName || '-'}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{opt?.accmodationOptionName || opt?.roomTypeName || '-'}</td>
                               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{finalPrice ? finalPrice.toLocaleString() + ' VND' : '-'}</td>
                             </tr>
                           );
@@ -1156,15 +1138,16 @@ export default function AdminRoomDashboard() {
             <form className="space-y-3 p-5" onSubmit={handleCreateOption}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Type *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Type Name *</label>
                   <input 
                     type="text" 
                     required 
-                    placeholder="Enter room type name..." 
+                    placeholder="Enter space type name..." 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
                     value={optionForm.roomTypeName} 
                     onChange={e => setOptionForm(f => ({ ...f, roomTypeName: e.target.value }))} 
                   />
+                  <p className="text-xs text-gray-500 mt-1">This will be used as the accommodation option name</p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Type ID *</label>
@@ -1181,27 +1164,48 @@ export default function AdminRoomDashboard() {
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">NextU Service *</label>
-                <select
-                  required
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                  value={optionForm.nextUServiceId}
-                  onChange={e => setOptionForm(f => ({ ...f, nextUServiceId: e.target.value }))}
-                >
-                  <option value="">-- Select NextU Service --</option>
-                  {nextUServices
-                    .filter(service => {
-                      const ecosystemName = service.ecosystemName?.toLowerCase() || '';
-                      return ecosystemName === 'co-living' || ecosystemName === 'co-working';
-                    })
-                    .map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.ecosystemName})
-                      </option>
-                    ))}
-                </select>
+                {loadingNextUServices ? (
+                  <div className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                    <span className="text-gray-500 text-sm">Loading services...</span>
+                  </div>
+                ) : (
+                  <select
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                    value={optionForm.nextUServiceId}
+                    onChange={e => setOptionForm(f => ({ ...f, nextUServiceId: e.target.value }))}
+                  >
+                    <option value="">-- Select NextU Service --</option>
+                    {nextUServices
+                      .filter(service => {
+                        // Đảm bảo serviceType là số và bằng 0 (booking phòng)
+                        const serviceType = typeof service.serviceType === 'number' ? service.serviceType : Number(service.serviceType) || 0;
+                        return serviceType === 0;
+                      })
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.ecosystemName || 'No Ecosystem'})
+                        </option>
+                      ))}
+                  </select>
+                )}
                 <p className="text-xs text-gray-500 mt-1">
-                  Only showing services from Co-Living and Co-Working ecosystems
+                  Only showing booking services (serviceType = "Booking") - Total: {nextUServices.filter(s => {
+                    const serviceType = typeof s.serviceType === 'number' ? s.serviceType : Number(s.serviceType) || 0;
+                    return serviceType === 0;
+                  }).length}
                 </p>
+                {nextUServices.length > 0 && nextUServices.filter(s => {
+                  const serviceType = typeof s.serviceType === 'number' ? s.serviceType : Number(s.serviceType) || 0;
+                  return serviceType === 0;
+                }).length === 0 && (
+                  <p className="text-xs text-orange-600 mt-1">
+                    ⚠️ No booking services found. Please create a service with serviceType = "Booking".
+                  </p>
+                )}
+                {/* Debug info */}
+              
               </div>
               
               <div className="grid grid-cols-2 gap-3">
@@ -1265,19 +1269,19 @@ export default function AdminRoomDashboard() {
             <form className="space-y-3 p-5" onSubmit={handleCreateRoom}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Type *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Accommodation Option *</label>
                   <select 
                     required 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
                     value={roomForm.accommodationOptionId} 
                     onChange={e => setRoomForm(f => ({ ...f, accommodationOptionId: e.target.value }))}
                   >
-                    <option value="">-- Select Room Type --</option>
+                    <option value="">-- Select Accommodation Option --</option>
                     {options.map(opt => (
-                      <option key={opt.id} value={opt.id}>{opt.roomTypeName}</option>
+                      <option key={opt.id} value={opt.id}>{opt.accmodationOptionName || opt.roomTypeName}</option>
                     ))}
                   </select>
-                  {/* Hiển thị giá theo đêm nếu đã chọn Room Type */}
+                  {/* Hiển thị giá theo đêm nếu đã chọn Accommodation Option */}
                   {roomForm.accommodationOptionId && (() => {
                     const selected = options.find(opt => opt.id === roomForm.accommodationOptionId);
                     if (!selected) return null;
@@ -1287,7 +1291,7 @@ export default function AdminRoomDashboard() {
                   })()}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Code *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Code *</label>
                   <input 
                     type="text" 
                     required 
@@ -1298,11 +1302,11 @@ export default function AdminRoomDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Name *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Name *</label>
                   <input 
                     type="text" 
                     required 
-                    placeholder="Enter room name..." 
+                    placeholder="Enter space name..." 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200" 
                     value={roomForm.roomName} 
                     onChange={e => setRoomForm(f => ({ ...f, roomName: e.target.value }))} 
@@ -1321,7 +1325,7 @@ export default function AdminRoomDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Size *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Size *</label>
                   <select 
                     required 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
@@ -1335,7 +1339,7 @@ export default function AdminRoomDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room View *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space View *</label>
                   <select 
                     required 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
@@ -1349,7 +1353,7 @@ export default function AdminRoomDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Room Floor *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Floor *</label>
                   <select 
                     required 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white" 
@@ -1591,20 +1595,67 @@ export default function AdminRoomDashboard() {
             <form className="space-y-3 p-5" onSubmit={handleCreateEntitlementRule}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Entitlement Rule Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Enter entitlement rule name..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
+                    value={entitlementRuleForm.entittlementRuleName} 
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, entittlementRuleName: e.target.value }))} 
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter a descriptive name for this entitlement rule</p>
+                </div>
+                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">NextU Service *</label>
-                  <select
-                    required
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
-                    value={entitlementRuleForm.nextUServiceId}
-                    onChange={e => setEntitlementRuleForm(f => ({ ...f, nextUServiceId: e.target.value }))}
-                  >
-                    <option value="">-- Select NextU Service --</option>
-                    {nextUServices.map(service => (
-                      <option key={service.id} value={service.id}>
-                        {service.name} ({service.ecosystemName})
-                      </option>
-                    ))}
-                  </select>
+                  {loadingNextUServices ? (
+                    <div className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600 mr-2"></div>
+                      <span className="text-gray-500 text-sm">Loading services...</span>
+                    </div>
+                  ) : (
+                    <select
+                      required
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
+                      value={entitlementRuleForm.nextUServiceId}
+                      onChange={e => setEntitlementRuleForm(f => ({ ...f, nextUServiceId: e.target.value }))}
+                    >
+                      <option value="">-- Select NextU Service --</option>
+                      {nextUServices
+                        .filter(service => {
+                          // Chỉ hiển thị non-booking services (serviceType = 1)
+                          const serviceType = typeof service.serviceType === 'number' ? service.serviceType : Number(service.serviceType) || 0;
+                          return serviceType === 1;
+                        })
+                        .map(service => (
+                          <option key={service.id} value={service.id}>
+                            {service.name} ({service.ecosystemName || 'No Ecosystem'})
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only showing non-booking services - Total: {nextUServices.filter(s => {
+                      const serviceType = typeof s.serviceType === 'number' ? s.serviceType : Number(s.serviceType) || 0;
+                      return serviceType === 1;
+                    }).length}
+                  </p>
+                  {nextUServices.length > 0 && nextUServices.filter(s => {
+                    const serviceType = typeof s.serviceType === 'number' ? s.serviceType : Number(s.serviceType) || 0;
+                    return serviceType === 1;
+                  }).length === 0 && (
+                    <p className="text-xs text-orange-600 mt-1">
+                      ⚠️ No non-booking services found. Please create a service with serviceType = "Non-Booking" first.
+                    </p>
+                  )}
+                  {/* Debug info */}
+                  <p className="text-xs text-gray-400 mt-1">
+                  
+                    Services with type non-booking: {nextUServices.filter(s => {
+                      const serviceType = typeof s.serviceType === 'number' ? s.serviceType : Number(s.serviceType) || 0;
+                      return serviceType === 1;
+                    }).length}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Price *</label>
@@ -1679,6 +1730,7 @@ export default function AdminRoomDashboard() {
                     setShowEntitlementRuleModal(false);
                     // Reset form when closing modal
                     setEntitlementRuleForm({
+                      entittlementRuleName: "",
                       nextUServiceId: "",
                       price: 0,
                       creditAmount: 0,
@@ -1705,7 +1757,7 @@ export default function AdminRoomDashboard() {
             {detailLoading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading room details...</p>
+                <p className="text-gray-600">Loading Space details...</p>
               </div>
             ) : roomDetail ? (
                              <div className="flex h-[calc(95vh-120px)]">
@@ -1736,7 +1788,7 @@ export default function AdminRoomDashboard() {
                               <div key={media.id} className="w-full h-full flex-shrink-0">
                                 <img
                                   src={media.url}
-                                  alt={media.description || `Room image ${index + 1}`}
+                                  alt={media.description || `space image ${index + 1}`}
                                   className="h-full w-full object-cover rounded-lg"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
@@ -1893,7 +1945,7 @@ export default function AdminRoomDashboard() {
 
                     {/* Room Specifications - Compact */}
                     <div className="mb-4">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Room Specifications</h4>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Space Specifications</h4>
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                         <div className="flex justify-between py-1 border-b border-gray-100">
                           <span className="text-gray-600">Area:</span>
@@ -1983,14 +2035,14 @@ export default function AdminRoomDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                 </div>
-                <p className="text-red-500 font-medium">Failed to load room details.</p>
+                <p className="text-red-500 font-medium">Failed to load space details.</p>
                 <p className="text-gray-500 text-sm mt-1">Please try again later.</p>
               </div>
             )}
           </Modal>
 
           {/* Image Upload Modal */}
-          <Modal open={showUploadModal} title={`Upload Room Images ${uploadForm.files.length > 0 ? `(${uploadForm.files.length} selected)` : ''}`} onClose={() => setShowUploadModal(false)}>
+          <Modal open={showUploadModal} title={`Upload Space Images ${uploadForm.files.length > 0 ? `(${uploadForm.files.length} selected)` : ''}`} onClose={() => setShowUploadModal(false)}>
             <div className="max-w-7xl mx-auto">
               <form className="space-y-6" onSubmit={handleImageUpload}>
                 {/* Main Content - Horizontal Layout */}
@@ -2262,7 +2314,7 @@ export default function AdminRoomDashboard() {
                               type="button"
                               onClick={() => {
                                 const autoDescriptions = uploadForm.files.map((file, index) => 
-                                  `Room image ${index + 1} - ${file.name.split('.')[0]}`
+                                  `Space image ${index + 1} - ${file.name.split('.')[0]}`
                                 );
                                 setUploadForm(prev => ({ ...prev, descriptions: autoDescriptions }));
                               }}
