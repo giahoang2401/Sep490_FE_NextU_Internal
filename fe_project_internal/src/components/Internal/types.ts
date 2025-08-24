@@ -97,6 +97,7 @@ export interface Property {
   locationName: string
   cityId: string
   cityName: string
+  coverImage?: string | null
 }
 
 export interface CreateCityData {
@@ -114,6 +115,7 @@ export interface CreatePropertyData {
   locationId: string
   name: string
   description: string
+  coverImage: string
 }
 
 export interface UpdateCityData {
@@ -131,6 +133,7 @@ export interface UpdatePropertyData {
   locationId: string
   name: string
   description: string
+  coverImage?: string
 }
 
 export interface CreateAdminPayload {

@@ -3,6 +3,7 @@
 import { UserPlus, Users, Package, Plus, Star, Home, GraduationCap, Lightbulb } from "lucide-react"
 import TopNav from "../shared/topNav"
 import DataTable from "../shared/dataTable"
+import MarkdownEditor from "../shared/MarkdownEditor"
 import type { User, TableColumn } from "../types"
 import { useState, useEffect } from "react"
 import axios from "../../../utils/axiosConfig"
@@ -40,7 +41,7 @@ export default function CreatePackageDashboard() {
     description: "",
     nextUServiceId: "",
     propertyId: "",
-    roomTypeId: "",
+    accommodationOptionId: "",
     price: "",
     basicPlanCategoryId: "",
     planLevelId: "",
@@ -198,15 +199,15 @@ export default function CreatePackageDashboard() {
     }
   }, [selectedNextUService])
 
-  // Khi chọn roomTypeId thì set selectedRoom
+  // Khi chọn accommodationOptionId thì set selectedRoom
   useEffect(() => {
-    if (form.roomTypeId && accommodationOptions.length > 0) {
-      const room = accommodationOptions.find((r: any) => r.id === form.roomTypeId)
+    if (form.accommodationOptionId && accommodationOptions.length > 0) {
+      const room = accommodationOptions.find((r: any) => r.id === form.accommodationOptionId)
       setSelectedRoom(room)
     } else {
       setSelectedRoom(null)
     }
-  }, [form.roomTypeId, accommodationOptions])
+  }, [form.accommodationOptionId, accommodationOptions])
 
   // Tính giá cuối cùng khi chọn đủ room + duration
   useEffect(() => {
@@ -399,8 +400,8 @@ export default function CreatePackageDashboard() {
     }
     // Nếu là Accommodation (serviceType = 0) thì thêm accomodations
     let extra = {}
-    if (selectedNextUService && selectedNextUService.serviceType === 0 && form.roomTypeId) {
-      extra = { accomodations: [{ accomodationId: form.roomTypeId }] }
+    if (selectedNextUService && selectedNextUService.serviceType === 0 && form.accommodationOptionId) {
+      extra = { accomodations: [{ accomodationId: form.accommodationOptionId }] }
     }
     // Nếu là Lifestyle Services (serviceType = 1) thì gửi entitlements: [{ entitlementRuleId, quantity: 0 }]
     if (selectedNextUService && selectedNextUService.serviceType === 1 && selectedEntitlementId) {
@@ -432,7 +433,7 @@ export default function CreatePackageDashboard() {
         description: "",
         nextUServiceId: "",
         propertyId: "",
-        roomTypeId: "",
+        accommodationOptionId: "",
         price: "",
         basicPlanCategoryId: "",
         planLevelId: "",
@@ -545,6 +546,40 @@ export default function CreatePackageDashboard() {
 
   // Thêm hàm lấy duration object từ id
   const getDurationObj = (id: string) => durations.find((d: any) => String(d.id) === String(id))
+
+  // Helper: render markdown preview
+  const renderMarkdownPreview = (markdown: string) => {
+    if (!markdown) return '';
+    
+    // Basic Markdown to HTML conversion
+    let html = markdown
+      // Headers
+      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mt-4 mb-2">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>')
+      // Bold
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+      // Italic
+      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+      // Code
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">$1</a>')
+      // Images
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-2" />')
+      // Blockquotes
+      .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 italic text-gray-700">$1</blockquote>')
+      // Lists
+      .replace(/^[\*\-]\s+(.*$)/gim, '<li class="ml-4">$1</li>')
+      .replace(/^[\d]+\.\s+(.*$)/gim, '<li class="ml-4">$1</li>')
+      // Line breaks
+      .replace(/\n/g, '<br />');
+
+    // Wrap lists properly
+    html = html.replace(/(<li.*<\/li>)/g, '<ul class="list-disc ml-6 my-2">$1</ul>');
+    
+    return html;
+  };
 
   // Tính tổng giá combo (không có discount)
   const calculateComboTotal = () => {
@@ -1225,13 +1260,12 @@ export default function CreatePackageDashboard() {
                     
                     <div className="mt-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <textarea 
-                        name="description" 
-                        value={form.description} 
-                        onChange={handleChange} 
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        placeholder="Enter package description"
-                        rows={2}
+                      <MarkdownEditor
+                        value={form.description}
+                        onChange={(value) => setForm(f => ({ ...f, description: value }))}
+                        placeholder="Enter package description... Use Markdown for formatting!"
+                        rows={3}
+                        className="w-full"
                       />
                     </div>
                   </div>
@@ -1247,18 +1281,18 @@ export default function CreatePackageDashboard() {
                       {/* Room Type for Accommodation */}
                       {selectedNextUService && selectedNextUService.serviceType === 0 && (
                         <div className="flex flex-col">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Room Type *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Accommodation Option *</label>
                           <select 
-                            name="roomTypeId" 
-                            value={form.roomTypeId} 
+                            name="accommodationOptionId" 
+                            value={form.accommodationOptionId} 
                             onChange={handleChange} 
                             className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                             required
                           >
-                            <option value="">Select Room Type</option>
+                            <option value="">Select Accommodation Option</option>
                             {accommodationOptions.map((r: any) => (
                               <option key={r.id} value={r.id}>
-                                {r.roomTypeName} ({r.pricePerNight.toLocaleString()}₫/night)
+                                {r.accmodationOptionName} ({r.pricePerNight.toLocaleString()}₫/night)
                               </option>
                             ))}
                           </select>
@@ -1285,7 +1319,7 @@ export default function CreatePackageDashboard() {
                             <option value="">Select Entitlement</option>
                             {entitlements.map((e: any) => (
                               <option key={e.id} value={e.id}>
-                                {e.nextUServiceName} - {e.price?.toLocaleString()}₫
+                                {e.entittlementRuleName} - {e.price?.toLocaleString()}₫
                               </option>
                             ))}
                           </select>
@@ -1385,7 +1419,7 @@ export default function CreatePackageDashboard() {
                         {finalPrice > 0 && (
                                                   <div className="text-xs text-gray-500 mt-1">
                           {selectedNextUService?.serviceType === 0 && selectedRoom && (
-                            <span>Based on {selectedRoom.roomTypeName} × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
+                            <span>Based on {selectedRoom.accmodationOptionName} × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
                           )}
                           {selectedNextUService?.serviceType === 1 && selectedEntitlementId && (
                             <span>Based on selected entitlement × {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'duration'}</span>
@@ -1403,7 +1437,7 @@ export default function CreatePackageDashboard() {
                           <div><span className="font-medium">Category:</span> {form.basicPlanCategoryId ? planCategories.find((c: any) => c.id === Number(form.basicPlanCategoryId))?.name : 'Not selected'}</div>
                           <div><span className="font-medium">Duration:</span> {selectedDurationIds[0] ? durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.value + ' ' + durations.find((d: any) => String(d.id) === String(selectedDurationIds[0]))?.unit : 'Not selected'}</div>
                           {selectedNextUService?.serviceType === 0 && selectedRoom && (
-                            <div><span className="font-medium">Room:</span> {selectedRoom.roomTypeName}</div>
+                            <div><span className="font-medium">Accommodation:</span> {selectedRoom.accmodationOptionName}</div>
                           )}
                           {selectedNextUService?.serviceType === 1 && selectedEntitlementId && (
                             <div><span className="font-medium">Service:</span> {entitlements.find((e: any) => e.id === selectedEntitlementId)?.nextUServiceName}</div>
@@ -1544,12 +1578,12 @@ export default function CreatePackageDashboard() {
                       {/* Accommodations */}
                       {selectedPlan.acomodations && selectedPlan.acomodations.length > 0 && (
                         <div className="bg-white border border-gray-200 rounded-lg p-4">
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Room Details</h3>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Accommodation Details</h3>
                           {selectedPlan.acomodations.map((acc: any, idx: number) => (
                             <div key={idx} className="space-y-2">
                               <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Room Type:</span>
-                                <span className="text-sm font-medium text-gray-900">{acc.roomType}</span>
+                                <span className="text-sm text-gray-600">Accommodation Option:</span>
+                                <span className="text-sm font-medium text-gray-900">{acc.accmodationOptionName || acc.roomType || 'N/A'}</span>
                           </div>
                               {acc.accomodationDescription && (
                                 <div>
@@ -1581,10 +1615,14 @@ export default function CreatePackageDashboard() {
                       {selectedPlan.description && selectedPlan.description.trim() && (
                         <div className="bg-white border border-gray-200 rounded-lg p-4">
                           <h3 className="text-sm font-semibold text-gray-900 mb-3">Description</h3>
-                          <p className="text-sm text-gray-700 leading-relaxed">
-                            {selectedPlan.description}
-                          </p>
-                    </div>
+                          <div className="prose prose-sm max-w-none">
+                            <div 
+                              dangerouslySetInnerHTML={{ 
+                                __html: renderMarkdownPreview(selectedPlan.description) 
+                              }} 
+                            />
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1655,15 +1693,19 @@ export default function CreatePackageDashboard() {
                       </div>
                       
                       <div className="flex flex-col">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <textarea 
-                          name="description" 
-                          value={formCombo.description} 
-                          onChange={e => setFormCombo(f => ({ ...f, description: e.target.value }))} 
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Plan Level *</label>
+                        <select 
+                          name="planLevelId" 
+                          value={formCombo.planLevelId} 
+                          onChange={e => setFormCombo(f => ({ ...f, planLevelId: e.target.value }))} 
                           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                          placeholder="Enter package description"
-                          rows={2}
-                        />
+                          required
+                        >
+                          <option value="">Select Plan Level</option>
+                          {planLevels.map((l: any) => (
+                            <option key={l.id} value={l.id}>{l.name}</option>
+                          ))}
+                        </select>
                       </div>
                       
                       <div className="flex flex-col">
@@ -1717,6 +1759,18 @@ export default function CreatePackageDashboard() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                    
+                    {/* Description - Full width row */}
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <MarkdownEditor
+                        value={formCombo.description}
+                        onChange={(value) => setFormCombo(f => ({ ...f, description: value }))}
+                        placeholder="Enter package description... Use Markdown for formatting!"
+                        rows={3}
+                        className="w-full"
+                      />
                     </div>
                   </div>
 
@@ -2181,9 +2235,13 @@ export default function CreatePackageDashboard() {
                         {selectedCombo.description && selectedCombo.description.trim() && (
                           <div className="bg-white border border-gray-200 rounded-lg p-4">
                             <h3 className="text-sm font-semibold text-gray-900 mb-3">Description</h3>
-                            <p className="text-sm text-gray-700 leading-relaxed">
-                              {selectedCombo.description}
-                            </p>
+                            <div className="prose prose-sm max-w-none">
+                              <div 
+                                dangerouslySetInnerHTML={{ 
+                                  __html: renderMarkdownPreview(selectedCombo.description) 
+                                }} 
+                              />
+                            </div>
                           </div>
                         )}
 
@@ -2310,13 +2368,13 @@ export default function CreatePackageDashboard() {
                                       </div>
                                     )}
 
-                                    {/* Room details for Accommodation */}
+                                    {/* Accommodation details */}
                                     {basicPlan.acomodations && basicPlan.acomodations.length > 0 && (
                                       <div className="pt-1 border-t border-gray-200">
-                                        <div className="text-xs text-gray-600 mb-1">Room:</div>
+                                        <div className="text-xs text-gray-600 mb-1">Accommodation:</div>
                                         {basicPlan.acomodations.map((acc: any, accIdx: number) => (
                                           <div key={accIdx} className="text-xs text-gray-700">
-                                            {acc.roomType}
+                                            {acc.accmodationOptionName || acc.roomType || 'N/A'}
                                           </div>
                                         ))}
                                       </div>

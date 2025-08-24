@@ -10,6 +10,8 @@ import {
   Trash2,
   X,
   Save,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import type {
   City,
@@ -42,7 +44,12 @@ export default function LocationManagement() {
   // Form data
   const [cityFormData, setCityFormData] = useState<CreateCityData>({ name: "", description: "" });
   const [locationFormData, setLocationFormData] = useState<CreateLocationData>({ cityId: "", name: "", description: "" });
-  const [propertyFormData, setPropertyFormData] = useState<CreatePropertyData>({ locationId: "", name: "", description: "" });
+  const [propertyFormData, setPropertyFormData] = useState<CreatePropertyData>({ locationId: "", name: "", description: "", coverImage: "" });
+
+  // Image upload states for property
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Loading states
   const [loading, setLoading] = useState(false);
@@ -68,6 +75,74 @@ export default function LocationManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Image upload function for property
+  const uploadImage = async (file: File) => {
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('File', file);
+      
+      const response = await api.post('/api/Files', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      // Update form data with image URL and blob name
+      setPropertyFormData(prev => ({
+        ...prev,
+        coverImage: response.data.url
+      }));
+      
+      return response.data;
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      throw error;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Handle image selection for property
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert("Please select a valid image file");
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size must be less than 5MB");
+        return;
+      }
+      
+      setSelectedImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      
+      // Upload image immediately
+      uploadImage(file);
+    }
+  };
+
+  // Remove image for property
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview("");
+    setPropertyFormData(prev => ({
+      ...prev,
+      coverImage: ""
+    }));
   };
 
   // City operations
@@ -133,7 +208,9 @@ export default function LocationManagement() {
     try {
       await api.post("/api/basePosition/properties", propertyFormData);
       setShowPropertyForm(false);
-      setPropertyFormData({ locationId: "", name: "", description: "" });
+      setPropertyFormData({ locationId: "", name: "", description: "", coverImage: "" });
+      setSelectedImage(null);
+      setImagePreview("");
       fetchData();
     } catch (error) {
       console.error("Failed to create property:", error);
@@ -145,7 +222,9 @@ export default function LocationManagement() {
     try {
       await api.put(`/api/basePosition/properties/${editingProperty.id}`, propertyFormData);
       setEditingProperty(null);
-      setPropertyFormData({ locationId: "", name: "", description: "" });
+      setPropertyFormData({ locationId: "", name: "", description: "", coverImage: "" });
+      setSelectedImage(null);
+      setImagePreview("");
       fetchData();
     } catch (error) {
       console.error("Failed to update property:", error);
@@ -154,7 +233,15 @@ export default function LocationManagement() {
 
   const handleEditProperty = (property: Property) => {
     setEditingProperty(property);
-    setPropertyFormData({ locationId: property.locationId, name: property.name, description: property.description || "" });
+    setPropertyFormData({ 
+      locationId: property.locationId, 
+      name: property.name, 
+      description: property.description || "",
+      coverImage: property.coverImage || ""
+    });
+    if (property.coverImage) {
+      setImagePreview(property.coverImage);
+    }
   };
 
   const resetForms = () => {
@@ -166,7 +253,9 @@ export default function LocationManagement() {
     setEditingProperty(null);
     setCityFormData({ name: "", description: "" });
     setLocationFormData({ cityId: "", name: "", description: "" });
-    setPropertyFormData({ locationId: "", name: "", description: "" });
+    setPropertyFormData({ locationId: "", name: "", description: "", coverImage: "" });
+    setSelectedImage(null);
+    setImagePreview("");
   };
 
   const getCityName = (cityId: string) => {
@@ -192,8 +281,8 @@ export default function LocationManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Địa điểm</h1>
-          <p className="text-gray-600">Quản lý hệ thống phân cấp địa điểm: Thành phố → Khu vực → Tài sản</p>
+          <h1 className="text-2xl font-bold text-gray-900">Location Management</h1>
+          <p className="text-gray-600">Manage location hierarchy system: City → Area → Property</p>
         </div>
       </div>
 
@@ -201,9 +290,9 @@ export default function LocationManagement() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: "cities", label: "Thành phố", icon: MapPin, count: cities.length },
-            { id: "locations", label: "Khu vực", icon: Building2, count: locations.length },
-            { id: "properties", label: "Tài sản", icon: MapPin, count: properties.length },
+            { id: "cities", label: "Cities", icon: MapPin, count: cities.length },
+            { id: "locations", label: "Areas", icon: Building2, count: locations.length },
+            { id: "properties", label: "Properties", icon: MapPin, count: properties.length },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -230,13 +319,13 @@ export default function LocationManagement() {
         {activeTab === "cities" && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-900">Danh sách Thành phố</h2>
+              <h2 className="text-lg font-medium text-gray-900">Cities List</h2>
               <button
                 onClick={() => setShowCityForm(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm Thành phố
+                Add City
               </button>
             </div>
             
@@ -269,13 +358,13 @@ export default function LocationManagement() {
         {activeTab === "locations" && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-900">Danh sách Khu vực</h2>
+              <h2 className="text-lg font-medium text-gray-900">Areas List</h2>
               <button
                 onClick={() => setShowLocationForm(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm Khu vực
+                Add Area
               </button>
             </div>
             
@@ -286,8 +375,8 @@ export default function LocationManagement() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <h3 className="text-lg font-medium text-gray-900">{location.name}</h3>
-                        <p className="text-sm text-gray-500">{location.description || "Không có mô tả"}</p>
-                        <p className="text-xs text-gray-400">Thuộc: {location.cityName}</p>
+                        <p className="text-sm text-gray-500">{location.description || "No description"}</p>
+                        <p className="text-xs text-gray-400">Belongs to: {location.cityName}</p>
                       </div>
                       <div className="flex space-x-2">
                         <button
@@ -309,13 +398,13 @@ export default function LocationManagement() {
         {activeTab === "properties" && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-900">Danh sách Tài sản</h2>
+              <h2 className="text-lg font-medium text-gray-900">Properties List</h2>
               <button
                 onClick={() => setShowPropertyForm(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm Tài sản
+                Add Property
               </button>
             </div>
             
@@ -326,10 +415,19 @@ export default function LocationManagement() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <h3 className="text-lg font-medium text-gray-900">{property.name}</h3>
-                        <p className="text-sm text-gray-500">{property.description || "Không có mô tả"}</p>
+                        <p className="text-sm text-gray-500">{property.description || "No description"}</p>
                         <p className="text-xs text-gray-400">
-                          Thuộc: {property.locationName} → {property.cityName}
+                          Belongs to: {property.locationName} → {property.cityName}
                         </p>
+                        {property.coverImage && (
+                          <div className="mt-2">
+                            <img 
+                              src={property.coverImage} 
+                              alt={property.name}
+                              className="w-16 h-16 object-cover rounded-md"
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="flex space-x-2">
                         <button
@@ -354,7 +452,7 @@ export default function LocationManagement() {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">
-                {editingCity ? "Chỉnh sửa Thành phố" : "Thêm Thành phố mới"}
+                {editingCity ? "Edit City" : "Add New City"}
               </h3>
               <button onClick={resetForms} className="text-gray-400 hover:text-gray-600">
                 <X className="h-6 w-6" />
@@ -364,7 +462,7 @@ export default function LocationManagement() {
             <form onSubmit={(e) => { e.preventDefault(); editingCity ? handleUpdateCity() : handleCreateCity(); }}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tên thành phố</label>
+                  <label className="block text-sm font-medium text-gray-700">City Name</label>
                   <input
                     type="text"
                     value={cityFormData.name}
@@ -374,7 +472,7 @@ export default function LocationManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Mô tả</label>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
                   <textarea
                     value={cityFormData.description}
                     onChange={(e) => setCityFormData({ ...cityFormData, description: e.target.value })}
@@ -388,14 +486,14 @@ export default function LocationManagement() {
                     onClick={resetForms}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    Hủy
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
                   >
                     <Save className="h-4 w-4 inline mr-2" />
-                    {editingCity ? "Cập nhật" : "Thêm"}
+                    {editingCity ? "Update" : "Add"}
                   </button>
                 </div>
               </div>
@@ -410,7 +508,7 @@ export default function LocationManagement() {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">
-                {editingLocation ? "Chỉnh sửa Khu vực" : "Thêm Khu vực mới"}
+                {editingLocation ? "Edit Area" : "Add New Area"}
               </h3>
               <button onClick={resetForms} className="text-gray-400 hover:text-gray-600">
                 <X className="h-6 w-6" />
@@ -420,14 +518,14 @@ export default function LocationManagement() {
             <form onSubmit={(e) => { e.preventDefault(); editingLocation ? handleUpdateLocation() : handleCreateLocation(); }}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Thành phố</label>
+                  <label className="block text-sm font-medium text-gray-700">City</label>
                   <select
                     value={locationFormData.cityId}
                     onChange={(e) => setLocationFormData({ ...locationFormData, cityId: e.target.value })}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
-                    <option value="">Chọn thành phố</option>
+                    <option value="">Select city</option>
                     {cities.map((city) => (
                       <option key={city.id} value={city.id}>
                         {city.name}
@@ -436,7 +534,7 @@ export default function LocationManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tên khu vực</label>
+                  <label className="block text-sm font-medium text-gray-700">Area Name</label>
                   <input
                     type="text"
                     value={locationFormData.name}
@@ -446,7 +544,7 @@ export default function LocationManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Mô tả</label>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
                   <textarea
                     value={locationFormData.description}
                     onChange={(e) => setLocationFormData({ ...locationFormData, description: e.target.value })}
@@ -460,14 +558,14 @@ export default function LocationManagement() {
                     onClick={resetForms}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    Hủy
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
                   >
                     <Save className="h-4 w-4 inline mr-2" />
-                    {editingLocation ? "Cập nhật" : "Thêm"}
+                    {editingLocation ? "Update" : "Add"}
                   </button>
                 </div>
               </div>
@@ -482,7 +580,7 @@ export default function LocationManagement() {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">
-                {editingProperty ? "Chỉnh sửa Tài sản" : "Thêm Tài sản mới"}
+                {editingProperty ? "Edit Property" : "Add New Property"}
               </h3>
               <button onClick={resetForms} className="text-gray-400 hover:text-gray-600">
                 <X className="h-6 w-6" />
@@ -492,14 +590,14 @@ export default function LocationManagement() {
             <form onSubmit={(e) => { e.preventDefault(); editingProperty ? handleUpdateProperty() : handleCreateProperty(); }}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Khu vực</label>
+                  <label className="block text-sm font-medium text-gray-700">Area</label>
                   <select
                     value={propertyFormData.locationId}
                     onChange={(e) => setPropertyFormData({ ...propertyFormData, locationId: e.target.value })}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
-                    <option value="">Chọn khu vực</option>
+                    <option value="">Select area</option>
                     {locations.map((location) => (
                       <option key={location.id} value={location.id}>
                         {location.name} ({location.cityName})
@@ -508,7 +606,7 @@ export default function LocationManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tên tài sản</label>
+                  <label className="block text-sm font-medium text-gray-700">Property Name</label>
                   <input
                     type="text"
                     value={propertyFormData.name}
@@ -518,7 +616,7 @@ export default function LocationManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Mô tả</label>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
                   <textarea
                     value={propertyFormData.description}
                     onChange={(e) => setPropertyFormData({ ...propertyFormData, description: e.target.value })}
@@ -526,20 +624,76 @@ export default function LocationManagement() {
                     rows={3}
                   />
                 </div>
+                
+                {/* Image Upload Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cover Image</label>
+                  
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mb-3 relative">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-md border"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Upload Button */}
+                  {!imagePreview && (
+                    <div className="flex items-center justify-center w-full">
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                          <p className="mb-2 text-sm text-gray-500">
+                            <span className="font-semibold">Click to upload</span> or drag and drop
+                          </p>
+                          <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleImageSelect}
+                          disabled={isUploadingImage}
+                        />
+                      </label>
+                    </div>
+                  )}
+                  
+                  {/* Upload Progress */}
+                  {isUploadingImage && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                        Uploading image...
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
                     onClick={resetForms}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    Hủy
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
                   >
                     <Save className="h-4 w-4 inline mr-2" />
-                    {editingProperty ? "Cập nhật" : "Thêm"}
+                    {editingProperty ? "Update" : "Add"}
                   </button>
                 </div>
               </div>

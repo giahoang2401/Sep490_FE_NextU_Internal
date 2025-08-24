@@ -5,6 +5,7 @@ import TopNav from "../shared/topNav";
 import RoleLayout from "../shared/roleLayout";
 import DashboardCard from "../shared/dashboardCard";
 import DataTable from "../shared/dataTable";
+import MarkdownEditor from "../shared/MarkdownEditor";
 import api from "../../../utils/axiosConfig"; 
 import type { User, TableColumn, NavigationItem } from "../types";
 import { MapPin, Users, UserPlus, BarChart3, DoorOpen } from "lucide-react";
@@ -811,6 +812,40 @@ export default function AdminRoomDashboard() {
     return opt?.pricePerNight ? Number(opt.pricePerNight).toLocaleString() + ' VND' : '-';
   };
 
+  // Helper: render markdown preview
+  const renderMarkdownPreview = (markdown: string) => {
+    if (!markdown) return '';
+    
+    // Basic Markdown to HTML conversion
+    let html = markdown
+      // Headers
+      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mt-4 mb-2">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>')
+      // Bold
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+      // Italic
+      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+      // Code
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">$1</a>')
+      // Images
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-2" />')
+      // Blockquotes
+      .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 italic text-gray-700">$1</blockquote>')
+      // Lists
+      .replace(/^[\*\-]\s+(.*$)/gim, '<li class="ml-4">$1</li>')
+      .replace(/^[\d]+\.\s+(.*$)/gim, '<li class="ml-4">$1</li>')
+      // Line breaks
+      .replace(/\n/g, '<br />');
+
+    // Wrap lists properly
+    html = html.replace(/(<li.*<\/li>)/g, '<ul class="list-disc ml-6 my-2">$1</ul>');
+    
+    return html;
+  };
+
   return (
     <RoleLayout>
       <style dangerouslySetInnerHTML={{ __html: scrollbarHideStyles }} />
@@ -1003,8 +1038,8 @@ export default function AdminRoomDashboard() {
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -1012,8 +1047,20 @@ export default function AdminRoomDashboard() {
                           <tr key={option.id} className="hover:bg-gray-50">
                             <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{option.accmodationOptionName || option.roomTypeName}</td>
                             <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.capacity}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.pricePerNight?.toLocaleString()} VND</td>
-                            <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-32">{option.description}</td>
+                            <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{option.pricePerNight?.toLocaleString()} VND</td>
+                            <td className="px-2 py-2 text-sm text-gray-500 max-w-32">
+                              {option.description ? (
+                                <div className="prose prose-xs max-w-none">
+                                      <div 
+                                        dangerouslySetInnerHTML={{ 
+                                          __html: renderMarkdownPreview(option.description) 
+                                        }} 
+                                      />
+                                    </div>
+                              ) : (
+                                <span className="text-gray-400">No description</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1054,6 +1101,7 @@ export default function AdminRoomDashboard() {
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -1070,7 +1118,20 @@ export default function AdminRoomDashboard() {
                               <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{room.roomName}</td>
                               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{room.roomCode}</td>
                               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{opt?.accmodationOptionName || opt?.roomTypeName || '-'}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{finalPrice ? finalPrice.toLocaleString() + ' VND' : '-'}</td>
+                              <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{finalPrice ? finalPrice.toLocaleString() + ' VND' : '-'}</td>
+                              <td className="px-2 py-2 text-sm text-gray-500 max-w-32">
+                                {room.descriptionDetails ? (
+                                  <div className="prose prose-xs max-w-none">
+                                    <div 
+                                      dangerouslySetInnerHTML={{ 
+                                        __html: renderMarkdownPreview(room.descriptionDetails) 
+                                      }} 
+                                    />
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">No description</span>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1237,12 +1298,12 @@ export default function AdminRoomDashboard() {
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description</label>
-                <textarea 
-                  placeholder="Detailed description of the room type..." 
-                  rows={2}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none" 
-                  value={optionForm.description} 
-                  onChange={e => setOptionForm(f => ({ ...f, description: e.target.value }))} 
+                <MarkdownEditor
+                  value={optionForm.description}
+                  onChange={(value) => setOptionForm(f => ({ ...f, description: value }))}
+                  placeholder="Detailed description of the space type... Use Markdown for formatting!"
+                  rows={3}
+                  className="w-full"
                 />
               </div>
               
@@ -1427,12 +1488,12 @@ export default function AdminRoomDashboard() {
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Detailed Description</label>
-                <textarea 
-                  placeholder="Detailed description of the room..." 
-                  rows={2}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 resize-none" 
-                  value={roomForm.descriptionDetails} 
-                  onChange={e => setRoomForm(f => ({ ...f, descriptionDetails: e.target.value }))} 
+                <MarkdownEditor
+                  value={roomForm.descriptionDetails}
+                  onChange={(value) => setRoomForm(f => ({ ...f, descriptionDetails: value }))}
+                  placeholder="Detailed description of the space... Use Markdown for formatting!"
+                  rows={3}
+                  className="w-full"
                 />
               </div>
               
@@ -1911,8 +1972,12 @@ export default function AdminRoomDashboard() {
                     {roomDetail.descriptionDetails && (
                       <div className="mb-4">
                         <h4 className="text-sm font-semibold text-gray-900 mb-1">Description</h4>
-                        <div className="bg-gray-50 p-2 rounded text-sm">
-                          <p className="text-gray-700">{roomDetail.descriptionDetails}</p>
+                        <div className="bg-gray-50 p-2 rounded text-sm prose prose-sm max-w-none">
+                          <div 
+                            dangerouslySetInnerHTML={{ 
+                              __html: renderMarkdownPreview(roomDetail.descriptionDetails) 
+                            }} 
+                          />
                         </div>
                       </div>
                     )}
