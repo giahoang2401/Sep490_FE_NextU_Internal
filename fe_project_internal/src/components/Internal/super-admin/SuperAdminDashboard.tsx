@@ -258,11 +258,10 @@ console.log("📌 length:", availableLocations?.length)
                 Regional Administrators ({admins.length})
               </h3>
               <button
-                onClick={() => setShowCreateForm(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                onClick={() => router.push('/super-admin/manage-admins')}
+                className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100"
               >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Admin
+                + Manage
               </button>
             </div>
             
@@ -283,7 +282,7 @@ console.log("📌 length:", availableLocations?.length)
                         Admin
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Location
+                        Property
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status

@@ -11,10 +11,12 @@ import {
   MapPin,
   User,
   Shield,
+  UserPlus,
 } from "lucide-react";
 import Sidebar from "../shared/sidebar";
 import TopNav from "../shared/topNav";
 import RoleLayout from "../shared/roleLayout";
+import CreateAdminForm from "../shared/createAdminForm";
 import { getSuperAdminNavigation } from "./superAdminNavigation";
 import type { Admin } from "../types";
 
@@ -35,10 +37,22 @@ export default function AdminManagement() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLocation, setFilterLocation] = useState("all");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [availableLocations, setAvailableLocations] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAdmins();
+    fetchLocations();
   }, []);
+
+  const fetchLocations = async () => {
+    try {
+      const res = await api.get("/api/user/Locations");
+      setAvailableLocations(res.data);
+    } catch (error) {
+      console.error("Failed to fetch locations", error);
+    }
+  };
 
   const fetchAdmins = async () => {
     try {
@@ -46,9 +60,33 @@ export default function AdminManagement() {
       const response = await api.get("/api/auth/management/admins");
       setAdmins(response.data);
     } catch (error) {
-      console.error("Failed to fetch admins:", error);
+      console.error("Failed to fetch admins", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateAdmin = async (data: {
+    userName: string;
+    email: string;
+    password: string;
+    locationId: string;
+    skipEmailVerification: boolean;
+  }) => {
+    try {
+      await api.post("/api/auth/super-admin/register-admin", {
+        userName: data.userName,
+        email: data.email,
+        password: data.password,
+        locationId: data.locationId,
+        skipEmailVerification: data.skipEmailVerification,
+      });
+      alert("Admin account created successfully!");
+      setShowCreateForm(false);
+      fetchAdmins(); // Refresh the admin list
+    } catch (error) {
+      console.error("Error creating admin:", error);
+      alert("Failed to create admin.");
     }
   };
 
@@ -142,9 +180,18 @@ export default function AdminManagement() {
         
         <main className="flex-1 p-4 lg:p-8">
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Admin Management</h1>
-            <p className="text-gray-600">Manage regional administrators and their access</p>
+          <div className="mb-6 flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Admin Management</h1>
+              <p className="text-gray-600">Manage regional administrators and their access</p>
+            </div>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Admin
+            </button>
           </div>
 
           {/* Filters */}
@@ -318,6 +365,15 @@ export default function AdminManagement() {
           </div>
         </main>
       </div>
+
+      {/* Create Admin Form Modal */}
+      {showCreateForm && (
+        <CreateAdminForm
+          availableLocations={availableLocations}
+          onSubmit={handleCreateAdmin}
+          onCancel={() => setShowCreateForm(false)}
+        />
+      )}
 
       {/* Detail Modal */}
       {showDetailModal && selectedAdmin && (

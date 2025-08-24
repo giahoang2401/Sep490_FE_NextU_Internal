@@ -31,6 +31,14 @@ export default function LocationManagement() {
   const [locations, setLocations] = useState<LocationDetail[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  
+  // Filter states
+  const [locationFilter, setLocationFilter] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState("");
+  
   // Form states
   const [showCityForm, setShowCityForm] = useState(false);
   const [showLocationForm, setShowLocationForm] = useState(false);
@@ -268,6 +276,41 @@ export default function LocationManagement() {
     return location?.name || "Unknown Location";
   };
 
+  // Filter and pagination logic
+  const filteredLocations = locations.filter(location =>
+    location.name.toLowerCase().includes(locationFilter.toLowerCase()) ||
+    location.description?.toLowerCase().includes(locationFilter.toLowerCase()) ||
+    location.cityName.toLowerCase().includes(locationFilter.toLowerCase())
+  );
+
+  const filteredProperties = properties.filter(property =>
+    property.name.toLowerCase().includes(propertyFilter.toLowerCase()) ||
+    property.description?.toLowerCase().includes(propertyFilter.toLowerCase()) ||
+    property.locationName.toLowerCase().includes(propertyFilter.toLowerCase()) ||
+    property.cityName.toLowerCase().includes(propertyFilter.toLowerCase())
+  );
+
+  const paginatedLocations = filteredLocations.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const paginatedProperties = filteredProperties.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalLocationPages = Math.ceil(filteredLocations.length / itemsPerPage);
+  const totalPropertyPages = Math.ceil(filteredProperties.length / itemsPerPage);
+
+  const resetPagination = () => {
+    setCurrentPage(1);
+  };
+
+  useEffect(() => {
+    resetPagination();
+  }, [locationFilter, propertyFilter]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -368,9 +411,23 @@ export default function LocationManagement() {
               </button>
             </div>
             
+            {/* Filter */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search areas by name, description, or city..."
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <div className="mt-2 text-sm text-gray-500">
+                Showing {paginatedLocations.length} of {filteredLocations.length} areas
+              </div>
+            </div>
+            
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
-                {locations.map((location) => (
+                {paginatedLocations.map((location) => (
                   <li key={location.id} className="px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -391,6 +448,43 @@ export default function LocationManagement() {
                 ))}
               </ul>
             </div>
+            
+            {/* Pagination */}
+            {totalLocationPages > 1 && (
+              <div className="flex justify-center mt-4">
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    disabled={currentPage === 1}
+                  >
+                    <span className="sr-only">Previous</span>
+                    ←
+                  </button>
+                  {Array.from({ length: totalLocationPages }, (_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`relative inline-flex items-center px-4 py-2 border border-gray-300 ${
+                        currentPage === i + 1
+                          ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalLocationPages, prev + 1))}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    disabled={currentPage === totalLocationPages}
+                  >
+                    <span className="sr-only">Next</span>
+                    →
+                  </button>
+                </nav>
+              </div>
+            )}
           </div>
         )}
 
@@ -408,9 +502,23 @@ export default function LocationManagement() {
               </button>
             </div>
             
+            {/* Filter */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search properties by name, description, area, or city..."
+                value={propertyFilter}
+                onChange={(e) => setPropertyFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <div className="mt-2 text-sm text-gray-500">
+                Showing {paginatedProperties.length} of {filteredProperties.length} properties
+              </div>
+            </div>
+            
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
-                {properties.map((property) => (
+                {paginatedProperties.map((property) => (
                   <li key={property.id} className="px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -442,6 +550,43 @@ export default function LocationManagement() {
                 ))}
               </ul>
             </div>
+            
+            {/* Pagination */}
+            {totalPropertyPages > 1 && (
+              <div className="flex justify-center mt-4">
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    disabled={currentPage === 1}
+                  >
+                    <span className="sr-only">Previous</span>
+                    ←
+                  </button>
+                  {Array.from({ length: totalPropertyPages }, (_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`relative inline-flex items-center px-4 py-2 border border-gray-300 ${
+                        currentPage === i + 1
+                          ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPropertyPages, prev + 1))}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    disabled={currentPage === totalPropertyPages}
+                  >
+                    <span className="sr-only">Next</span>
+                    →
+                  </button>
+                </nav>
+              </div>
+            )}
           </div>
         )}
       </div>

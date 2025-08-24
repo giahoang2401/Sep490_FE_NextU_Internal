@@ -25,11 +25,39 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [validationErrors, setValidationErrors] = useState<Partial<LoginCredentials>>({})
+
+  // Validate form before submission
+  const validateForm = (): boolean => {
+    const errors: Partial<LoginCredentials> = {}
+    
+    if (!credentials.email.trim()) {
+      errors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email)) {
+      errors.email = "Please enter a valid email address"
+    }
+    
+    if (!credentials.password.trim()) {
+      errors.password = "Password is required"
+    }
+    
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    
+    // Clear previous errors
     setError("")
+    setValidationErrors({})
+    
+    // Validate form first
+    if (!validateForm()) {
+      return
+    }
+    
+    setIsLoading(true)
 
     try {
       const params = new URLSearchParams()
@@ -78,7 +106,17 @@ export default function LoginForm() {
       
       router.push(redirectPath)
     } catch (err: any) {
-      setError(err.response?.data?.error_description || err.response?.data?.message || err.message || "Login failed")
+      // Debug để xem response từ backend
+      console.log("🚨 Full Error Object:", err)
+      console.log("🚨 Error Response:", err.response)
+      console.log("🚨 Error Response Data:", err.response?.data)
+      console.log("🚨 Error Description:", err.response?.data?.error_description)
+      console.log("🚨 Error Type:", typeof err.response?.data?.error_description)
+      
+      // Sửa: truy cập error_description trực tiếp từ error object
+      const errorMessage = err.error_description || err.response?.data?.error_description || "Login failed"
+      console.log("🚨 Final Error Message:", errorMessage)
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -86,7 +124,12 @@ export default function LoginForm() {
 
   const handleChange = (field: keyof LoginCredentials, value: string) => {
     setCredentials((prev) => ({ ...prev, [field]: value }))
+    
+    // Clear errors when user starts typing
     if (error) setError("")
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({ ...prev, [field]: undefined }))
+    }
   }
 
   return (
@@ -102,9 +145,10 @@ export default function LoginForm() {
 
         <div className="bg-white rounded-lg shadow-md p-8">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Backend Error Message */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                <AlertCircle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
                 <span className="text-sm text-red-700">{error}</span>
               </div>
             )}
@@ -120,9 +164,14 @@ export default function LoginForm() {
                 required
                 value={credentials.email}
                 onChange={(e) => handleChange("email", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  validationErrors.email ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Enter your email"
               />
+              {validationErrors.email && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+              )}
             </div>
 
             <div>
@@ -137,7 +186,9 @@ export default function LoginForm() {
                   required
                   value={credentials.password}
                   onChange={(e) => handleChange("password", e.target.value)}
-                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    validationErrors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="Enter your password"
                 />
                 <button
@@ -148,12 +199,15 @@ export default function LoginForm() {
                   {showPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
                 </button>
               </div>
+              {validationErrors.password && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.password}</p>
+              )}
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center">
