@@ -855,276 +855,181 @@ export default function AdminRoomDashboard() {
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
          
 
-          {/* Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-            <DashboardCard 
-              title="Total Spaces" 
-              value={totalRooms} 
-              icon={() => <span className="text-2xl">🏠</span>} 
-            />
-            <DashboardCard 
-              title="Space Types" 
-              value={totalTypes} 
-              icon={() => <span className="text-2xl">📦</span>} 
-            />
-            <DashboardCard 
-              title="NextU Services" 
-              value={nextUServices.length} 
-              icon={() => <span className="text-2xl">🔧</span>} 
-            />
-            <DashboardCard 
-              title="Ecosystems" 
-              value={ecosystems.length} 
-              icon={() => <span className="text-2xl">🌐</span>} 
-            />
-            <DashboardCard 
-              title="Entitlement Rules" 
-              value={entitlementRules.length} 
-              icon={() => <span className="text-2xl">📋</span>} 
-            />
-          </div>
-
-
-
-          {/* Main Content Grid - 2x3 Layout */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
+          {/* Main Content - Horizontal Row Layout with 3 Groups */}
+          <div className="space-y-8">
             
-            {/* Top Left - Ecosystems */}
-            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Ecosystems</h3>
-                    <p className="text-gray-600 text-xs">Business ecosystems management</p>
-                  </div>
-                  <button 
-                    className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 text-sm font-medium transition-all duration-200 shadow-md" 
-                    onClick={() => setShowEcosystemModal(true)}
-                  >
-                    + Add
-                  </button>
-                </div>
+            {/* Group 1: General Configuration */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <h3 className="text-lg font-semibold text-gray-700">General Configuration</h3>
+                <div className="flex-1 h-px bg-gray-200"></div>
               </div>
-              <div className="overflow-hidden h-[calc(100%-60px)]">
-                {loadingEcosystems ? (
-                  <div className="p-4 text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
-                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+              
+              {/* Ecosystems Card */}
+              <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Ecosystems</h3>
+                      <p className="text-gray-600 text-xs">Business ecosystems management</p>
+                    </div>
+                    <button 
+                      className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                      onClick={() => setShowEcosystemModal(true)}
+                    >
+                      + Add
+                    </button>
                   </div>
-                ) : (
-                  <div className="overflow-y-auto h-full">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {ecosystems.map((ecosystem) => (
-                          <tr key={ecosystem.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{ecosystem.code}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{ecosystem.name}</td>
-                            <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-32">{ecosystem.description}</td>
+                </div>
+                <div className="overflow-hidden">
+                  {loadingEcosystems ? (
+                    <div className="p-4 text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
+                      <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Top Right - NextU Services */}
-            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">NextU Services</h3>
-                    <p className="text-gray-600 text-xs">Service types management</p>
-                  </div>
-                  <button 
-                    className="bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 text-sm font-medium transition-all duration-200 shadow-md" 
-                    onClick={() => setShowNextUServiceModal(true)}
-                  >
-                    + Add
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-hidden h-[calc(100%-60px)]">
-                {loadingNextUServices ? (
-                  <div className="p-4 text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
-                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
-                  </div>
-                ) : (
-                  <div className="overflow-y-auto h-full">
-                    <table className="min-w-full divide-y divide-gray-200">
-                                             <thead className="bg-gray-50 sticky top-0">
-                         <tr>
-                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecosystem</th>
-                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
-                         </tr>
-                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                                                {nextUServices.map((service) => {
-                          // Đảm bảo serviceType là số và có giá trị hợp lệ
-                          const serviceType = typeof service.serviceType === 'number' ? service.serviceType : Number(service.serviceType) || 0;
-                          const isBooking = serviceType === 0;
-                          
-                          // Debug logging
-                          if (process.env.NODE_ENV === 'development') {
-                            console.log(`Service ${service.name}:`, {
-                              original: service.serviceType,
-                              type: typeof service.serviceType,
-                              processed: serviceType,
-                              isBooking: isBooking
-                            });
-                          }
-                         
-                          return (
-                            <tr key={service.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{service.name}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm">
-                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                                  isBooking 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-purple-100 text-purple-800'
-                                }`}>
-                                  {isBooking ? ' Booking' : ' Service'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.ecosystemName}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 truncate max-w-24">{service.propertyName}</td>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {ecosystems.map((ecosystem) => (
+                            <tr key={ecosystem.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{ecosystem.code}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{ecosystem.name}</td>
+                              <td className="px-3 py-2 text-sm text-gray-500 max-w-96">{ecosystem.description}</td>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Bottom Left - Room Types */}
-            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Space Types</h3>
-                    <p className="text-gray-600 text-xs">Accommodation types</p>
-                  </div>
-                  <button 
-                    className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium transition-all duration-200 shadow-md" 
-                    onClick={() => setShowOptionModal(true)}
-                  >
-                    + Add
-                  </button>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="overflow-hidden h-[calc(100%-60px)]">
-                {loadingOptions ? (
-                  <div className="p-4 text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+
+              {/* NextU Services Card */}
+              <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">NextU Services</h3>
+                      <p className="text-gray-600 text-xs">Service types management</p>
+                    </div>
+                    <button 
+                      className="bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                      onClick={() => setShowNextUServiceModal(true)}
+                    >
+                      + Add
+                    </button>
                   </div>
-                ) : (
-                  <div className="overflow-y-auto h-full">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {options.map((option) => (
-                          <tr key={option.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{option.accmodationOptionName || option.roomTypeName}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.capacity}</td>
-                            <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{option.pricePerNight?.toLocaleString()} VND</td>
-                            <td className="px-2 py-2 text-sm text-gray-500 max-w-32">
-                              {option.description ? (
-                                <div className="prose prose-xs max-w-none">
-                                      <div 
-                                        dangerouslySetInnerHTML={{ 
-                                          __html: renderMarkdownPreview(option.description) 
-                                        }} 
-                                      />
-                                    </div>
-                              ) : (
-                                <span className="text-gray-400">No description</span>
-                              )}
-                            </td>
+                </div>
+                <div className="overflow-hidden">
+                  {loadingNextUServices ? (
+                    <div className="p-4 text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
+                      <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecosystem</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {nextUServices.map((service) => {
+                            const serviceType = typeof service.serviceType === 'number' ? service.serviceType : Number(service.serviceType) || 0;
+                            const isBooking = serviceType === 0;
+                            
+                            return (
+                              <tr key={service.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{service.name}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm">
+                                  <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                                    isBooking 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-purple-100 text-purple-800'
+                                  }`}>
+                                    {isBooking ? 'Booking' : 'Service'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{service.ecosystemName}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{service.propertyName}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Bottom Right - Rooms */}
-            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Spaces</h3>
-                    <p className="text-gray-600 text-xs">Room instances</p>
-                  </div>
-                  <button 
-                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 text-sm font-medium transition-all duration-200 shadow-md" 
-                    onClick={() => setShowRoomModal(true)}
-                  >
-                    + Add
-                  </button>
-                </div>
+            {/* Divider */}
+            <div className="border-t-2 border-gray-200 my-8"></div>
+
+            {/* Group 2: Booking-related Group */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <h3 className="text-lg font-semibold text-gray-700">Booking-related Group</h3>
+                <div className="flex-1 h-px bg-gray-200"></div>
               </div>
-              <div className="overflow-hidden h-[calc(100%-60px)]">
-                {loadingRooms ? (
-                  <div className="p-4 text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
-                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+              
+              {/* Space Types Card */}
+              <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Space Types</h3>
+                      <p className="text-gray-600 text-xs">Accommodation types</p>
+                    </div>
+                    <button 
+                      className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                      onClick={() => setShowOptionModal(true)}
+                    >
+                      + Add
+                    </button>
                   </div>
-                ) : (
-                  <div className="overflow-y-auto h-full">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {rooms.map((room, index) => {
-                          const opt = options.find(o => o.id === room.accommodationOptionId);
-                          let addOnFee = 0;
-                          if (room.addOnFee !== undefined && !isNaN(Number(room.addOnFee))) {
-                            addOnFee = Number(room.addOnFee);
-                          }
-                          const finalPrice = opt ? (opt.pricePerNight || 0) + addOnFee : addOnFee;
-                          
-                          return (
-                            <tr key={room.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(room.id)}>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{room.roomName}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{room.roomCode}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{opt?.accmodationOptionName || opt?.roomTypeName || '-'}</td>
-                              <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{finalPrice ? finalPrice.toLocaleString() + ' VND' : '-'}</td>
-                              <td className="px-2 py-2 text-sm text-gray-500 max-w-32">
-                                {room.descriptionDetails ? (
+                </div>
+                <div className="overflow-hidden">
+                  {loadingOptions ? (
+                    <div className="p-4 text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {options.map((option) => (
+                            <tr key={option.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{option.accmodationOptionName || option.roomTypeName}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.capacity}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.pricePerNight?.toLocaleString()} VND</td>
+                              <td className="px-3 py-2 text-sm text-gray-500 max-w-96">
+                                {option.description ? (
                                   <div className="prose prose-xs max-w-none">
                                     <div 
                                       dangerouslySetInnerHTML={{ 
-                                        __html: renderMarkdownPreview(room.descriptionDetails) 
+                                        __html: renderMarkdownPreview(option.description) 
                                       }} 
                                     />
                                   </div>
@@ -1133,63 +1038,168 @@ export default function AdminRoomDashboard() {
                                 )}
                               </td>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Spaces Card */}
+              <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Spaces</h3>
+                      <p className="text-gray-600 text-xs">Room instances</p>
+                    </div>
+                    <button 
+                      className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                      onClick={() => setShowRoomModal(true)}
+                    >
+                      + Add
+                    </button>
                   </div>
-                )}
+                </div>
+                <div className="overflow-hidden">
+                  {loadingRooms ? (
+                    <div className="p-4 text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
+                      <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Night</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {rooms.map((room) => {
+                            const opt = options.find(o => o.id === room.accommodationOptionId);
+                            let addOnFee = 0;
+                            if (room.addOnFee !== undefined && !isNaN(Number(room.addOnFee))) {
+                              addOnFee = Number(room.addOnFee);
+                            }
+                            const finalPrice = opt ? (opt.pricePerNight || 0) + addOnFee : addOnFee;
+                            
+                            return (
+                              <tr key={room.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(room.id)}>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  {room.medias && room.medias.length > 0 ? (
+                                    <div className="w-16 h-12 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                                      <img
+                                        src={room.medias[0].url}
+                                        alt={room.medias[0].description || `Space ${room.roomName}`}
+                                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0IDg5LjU0NCA4MCAxMDAgODBDMTEwLjQ1NiA4MCAxMjAgODkuNTQ0IDEyMCAxMDBDMTIwIDExMC40NTYgMTEwLjQ1NiAxMjAgMTAwIDEyMEM4OS41NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iIzlCOUJBMCIvPjxwYXRoIGQ9Ik0xMDAgMTMwQzExMC40NTYgMTMwIDEyMCAxMjAuNDU2IDEyMCAxMTBDMTIwIDk5LjU0NCAxMTAuNDU2IDkwIDEwMCA5MEM4OS41NDQgOTAgODAgOTkuNTQ0IDgwIDExMEM4MCAxMjAuNDU2IDg5LjU0NCAxMzAgMTAwIDEzMFoiIGZpbGw9IiM5QjlCQTAiLz4KPC9zdmc+';
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-16 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+                                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{room.roomName}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{room.roomCode}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{opt?.accmodationOptionName || opt?.roomTypeName || '-'}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{finalPrice ? finalPrice.toLocaleString() + ' VND' : '-'}</td>
+                                <td className="px-3 py-2 text-sm text-gray-500 max-w-96">
+                                  {room.descriptionDetails ? (
+                                    <div className="prose prose-xs max-w-none">
+                                      <div 
+                                        dangerouslySetInnerHTML={{ 
+                                          __html: renderMarkdownPreview(room.descriptionDetails) 
+                                        }} 
+                                      />
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">No description</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Third Column - EntitlementRules */}
-            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-red-50">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Entitlement Rules</h3>
-                    <p className="text-gray-600 text-xs">Service entitlement management</p>
-                  </div>
-                  <button 
-                    className="bg-orange-600 text-white px-3 py-1.5 rounded-lg hover:bg-orange-700 text-sm font-medium transition-all duration-200 shadow-md" 
-                    onClick={() => setShowEntitlementRuleModal(true)}
-                  >
-                    + Add
-                  </button>
-                </div>
+            {/* Divider */}
+            <div className="border-t-2 border-gray-200 my-8"></div>
+
+            {/* Group 3: Non-booking related Group */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <h3 className="text-lg font-semibold text-gray-700">Non-booking related Group</h3>
+                <div className="flex-1 h-px bg-gray-200"></div>
               </div>
-              <div className="overflow-hidden h-[calc(100%-60px)]">
-                {loadingEntitlementRules ? (
-                  <div className="p-4 text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mx-auto"></div>
-                    <p className="text-gray-600 text-sm mt-2">Loading...</p>
+              
+              {/* Entitlement Rules Card */}
+              <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-red-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Entitlement Rules</h3>
+                      <p className="text-gray-600 text-xs">Service entitlement management</p>
+                    </div>
+                    <button 
+                      className="bg-orange-600 text-white px-3 py-1.5 rounded-lg hover:bg-orange-700 text-sm font-medium transition-all duration-200 shadow-md" 
+                      onClick={() => setShowEntitlementRuleModal(true)}
+                    >
+                      + Add
+                    </button>
                   </div>
-                ) : (
-                  <div className="overflow-y-auto h-full">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Limit</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {entitlementRules.map((rule) => (
-                          <tr key={rule.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-32">{rule.nextUServiceName}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.price.toLocaleString()} VND</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.creditAmount}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.period}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.limitPerPeriod}</td>
+                </div>
+                <div className="overflow-hidden">
+                  {loadingEntitlementRules ? (
+                    <div className="p-4 text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mx-auto"></div>
+                      <p className="text-gray-600 text-sm mt-2">Loading...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Limit</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {entitlementRules.map((rule) => (
+                            <tr key={rule.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{rule.nextUServiceName}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.price.toLocaleString()} VND</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.creditAmount}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.period}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.limitPerPeriod}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1684,7 +1694,7 @@ export default function AdminRoomDashboard() {
                       <option value="">-- Select NextU Service --</option>
                       {nextUServices
                         .filter(service => {
-                          // Chỉ hiển thị non-booking services (serviceType = 1)
+                          // Only show non-booking services (serviceType = 1)
                           const serviceType = typeof service.serviceType === 'number' ? service.serviceType : Number(service.serviceType) || 0;
                           return serviceType === 1;
                         })
@@ -1709,67 +1719,65 @@ export default function AdminRoomDashboard() {
                       ⚠️ No non-booking services found. Please create a service with serviceType = "Non-Booking" first.
                     </p>
                   )}
-                  {/* Debug info */}
-                  <p className="text-xs text-gray-400 mt-1">
-                  
-                    Services with type non-booking: {nextUServices.filter(s => {
-                      const serviceType = typeof s.serviceType === 'number' ? s.serviceType : Number(s.serviceType) || 0;
-                      return serviceType === 1;
-                    }).length}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Price *</label>
-                  <input 
-                    type="number" 
-                    min={0}
-                    required 
-                    placeholder="Enter price..." 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
-                    value={entitlementRuleForm.price} 
-                    onChange={e => setEntitlementRuleForm(f => ({ ...f, price: Number(e.target.value) }))} 
-                  />
                 </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Credit Amount *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Monthly Price *</label>
                   <input 
                     type="number" 
                     min={0}
                     required 
-                    placeholder="Enter credit amount..." 
+                    placeholder="Enter monthly price..." 
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
+                    value={entitlementRuleForm.price} 
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, price: Number(e.target.value) }))} 
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Price per month in VND</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Monthly Credit Amount *</label>
+                  <input 
+                    type="number" 
+                    min={0}
+                    required 
+                    placeholder="Enter monthly credit amount..." 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
                     value={entitlementRuleForm.creditAmount} 
                     onChange={e => setEntitlementRuleForm(f => ({ ...f, creditAmount: Number(e.target.value) }))} 
                   />
+                  <p className="text-xs text-gray-500 mt-1">Credits provided per month</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Period Type *</label>
+                  <select
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-white"
+                    value={entitlementRuleForm.period}
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, period: Number(e.target.value) }))}
+                  >
+                    <option value={0}>Week</option>
+                    <option value={1}>Month</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Select the period type for this rule</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Period *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Limit Per Period *</label>
                   <input 
                     type="number" 
                     min={0}
                     required 
-                    placeholder="Enter period..." 
+                    placeholder="Enter limit per period..." 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
-                    value={entitlementRuleForm.period} 
-                    onChange={e => setEntitlementRuleForm(f => ({ ...f, period: Number(e.target.value) }))} 
+                    value={entitlementRuleForm.limitPerPeriod} 
+                    onChange={e => setEntitlementRuleForm(f => ({ ...f, limitPerPeriod: Number(e.target.value) }))} 
                   />
+                  <p className="text-xs text-gray-500 mt-1">Maximum usage limit per period</p>
                 </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Limit Per Period *</label>
-                <input 
-                  type="number" 
-                  min={0}
-                  required 
-                  placeholder="Enter limit per period..." 
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200" 
-                  value={entitlementRuleForm.limitPerPeriod} 
-                  onChange={e => setEntitlementRuleForm(f => ({ ...f, limitPerPeriod: Number(e.target.value) }))} 
-                />
               </div>
               
               <div>

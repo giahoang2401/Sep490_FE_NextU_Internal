@@ -897,18 +897,6 @@ export default function CreatePackageDashboard() {
                 )}
               </div>
             </div>
-
-                         {/* Recent Feedback Box - Side column */}
-             <div className="lg:col-span-1">
-               <div className="bg-white shadow rounded-lg p-6">
-                 <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Feedback</h3>
-                 <div className="space-y-3">
-                   <div className="text-sm text-gray-500 text-center py-4">
-                     Feedback data will be loaded from API
-                   </div>
-                 </div>
-               </div>
-             </div>
           </div>
 
           {/* Combo Packages - Same width as Basic packages */}
@@ -1171,26 +1159,7 @@ export default function CreatePackageDashboard() {
             <div className="lg:col-span-1"></div>
           </div>
 
-                     {/* Service Categories */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="bg-white shadow rounded-lg p-6">
-               <h3 className="text-lg font-medium text-gray-900 mb-4">NextLiving Services</h3>
-               <div className="space-y-3">
-                 <div className="text-sm text-gray-500 text-center py-4">
-                   Service data will be loaded from API
-                 </div>
-               </div>
-             </div>
 
-             <div className="bg-white shadow rounded-lg p-6">
-               <h3 className="text-lg font-medium text-gray-900 mb-4">NextAcademy Courses</h3>
-               <div className="space-y-3">
-                 <div className="text-sm text-gray-500 text-center py-4">
-                   Course data will be loaded from API
-                 </div>
-               </div>
-             </div>
-           </div>
           {/* Modal Add Basic Package */}
           {showAddModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
