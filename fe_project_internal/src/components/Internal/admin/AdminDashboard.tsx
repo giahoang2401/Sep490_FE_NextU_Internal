@@ -23,10 +23,7 @@ const validateEmail = (email: string): boolean => {
   return emailRegex.test(email)
 }
 
-const validatePhone = (phone: string): boolean => {
-  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
-  return phoneRegex.test(phone.replace(/\s/g, ''))
-}
+
 
 const validateRequired = (value: string): boolean => {
   return value.trim().length > 0
@@ -133,8 +130,6 @@ export default function AdminDashboard() {
     if (data.profileInfo) {
       if (!validateRequired(data.profileInfo.phone)) {
         errors.push("Phone number is required")
-      } else if (!validatePhone(data.profileInfo.phone)) {
-        errors.push("Please enter a valid phone number")
       }
       
       if (!validateRequired(data.profileInfo.gender)) {
