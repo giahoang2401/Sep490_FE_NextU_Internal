@@ -349,15 +349,7 @@ export default function AdminRoomDashboard() {
     }
   }, [showOptionModal]);
 
-  // Auto-fill room type name when room type ID is selected
-  useEffect(() => {
-    if (optionForm.roomTypeId && roomTypes.length > 0) {
-      const selectedRoomType = roomTypes.find(rt => rt.id === Number(optionForm.roomTypeId));
-      if (selectedRoomType) {
-        setOptionForm(prev => ({ ...prev, roomTypeName: selectedRoomType.name }));
-      }
-    }
-  }, [optionForm.roomTypeId, roomTypes]);
+
 
   const fetchOptions = async () => {
     setLoadingOptions(true);
@@ -568,13 +560,13 @@ export default function AdminRoomDashboard() {
     }
   };
 
-  // Create
+  // Create accommodation option (space type)
   const handleCreateOption = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       // Validate that roomTypeId is selected
       if (!optionForm.roomTypeId) {
-        setToast("Please select a room type");
+        setToast("Please select a main room type");
         return;
       }
 
@@ -587,7 +579,7 @@ export default function AdminRoomDashboard() {
         pricePerNight: Number(optionForm.pricePerNight),
         description: optionForm.description
       });
-      setToast("Room type created successfully!");
+      setToast("Space type created successfully!");
       setOptionForm({ roomTypeName: "", roomTypeId: "", nextUServiceId: "", capacity: 1, pricePerNight: 0, description: "" });
       setShowOptionModal(false);
       fetchOptions();
@@ -1284,15 +1276,15 @@ export default function AdminRoomDashboard() {
                   <input 
                     type="text" 
                     required 
-                    placeholder="Enter space type name..." 
+                    placeholder="e.g., Private Studio A, Villa Room B..." 
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
                     value={optionForm.roomTypeName} 
                     onChange={e => setOptionForm(f => ({ ...f, roomTypeName: e.target.value }))} 
                   />
-                  <p className="text-xs text-gray-500 mt-1">This will be used as the accommodation option name</p>
+                  <p className="text-xs text-gray-500 mt-1">Enter a specific name for this space type (e.g., Private Studio A, Villa Room B)</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Type ID *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Main Type Room *</label>
                   {loadingRoomTypes ? (
                     <div className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 flex items-center justify-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
@@ -1305,7 +1297,7 @@ export default function AdminRoomDashboard() {
                     value={optionForm.roomTypeId}
                     onChange={e => setOptionForm(f => ({ ...f, roomTypeId: e.target.value }))}
                     >
-                      <option value="">-- Select Room Type --</option>
+                      <option value="">-- Select Main Room Type --</option>
                       {roomTypes.map(roomType => (
                         <option key={roomType.id} value={roomType.id}>
                           {roomType.name} - {roomType.description}
@@ -1313,7 +1305,7 @@ export default function AdminRoomDashboard() {
                       ))}
                     </select>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">Select from available room types</p>
+                  <p className="text-xs text-gray-500 mt-1">Select the main room type category (e.g., Private Studio, Villa Room)</p>
                 </div>
               </div>
               
@@ -1413,7 +1405,7 @@ export default function AdminRoomDashboard() {
                   type="submit" 
                   className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 font-medium transition-all duration-200 shadow-md"
                 >
-                  Create Room Type
+                  Create Space Type
                 </button>
               </div>
             </form>
