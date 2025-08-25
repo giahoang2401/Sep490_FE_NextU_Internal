@@ -154,7 +154,7 @@ export default function AdminRoomDashboard() {
   const [loadingEcosystems, setLoadingEcosystems] = useState(false);
   
   // EntitlementRule state
-  const [entitlementRules, setEntitlementRules] = useState<{ id: string; nextUServiceId: string; nextUServiceName: string; price: number; creditAmount: number; period: number; limitPerPeriod: number; note: string }[]>([]);
+  const [entitlementRules, setEntitlementRules] = useState<{ id: string; entittlementRuleName: string; nextUServiceId: string; nextUServiceName: string; price: number; creditAmount: number; period: number; limitPerPeriod: number; note: string }[]>([]);
   const [showEntitlementRuleModal, setShowEntitlementRuleModal] = useState(false);
   const [loadingEntitlementRules, setLoadingEntitlementRules] = useState(false);
   
@@ -193,6 +193,10 @@ export default function AdminRoomDashboard() {
     pricePerNight: 0,
     description: "",
   });
+  
+  // Room types state
+  const [roomTypes, setRoomTypes] = useState<{ id: number; name: string; description: string }[]>([]);
+  const [loadingRoomTypes, setLoadingRoomTypes] = useState(false);
   const [propertyId, setPropertyId] = useState("");
   const [propertyName, setPropertyName] = useState("");
   const [roomForm, setRoomForm] = useState({
@@ -290,6 +294,7 @@ export default function AdminRoomDashboard() {
     fetchNextUServices();
     fetchEcosystems();
     fetchEntitlementRules();
+    fetchRoomTypes();
   }, []);
 
   // Lấy propertyId từ localStorage khi mở modal tạo Room Type
@@ -343,6 +348,16 @@ export default function AdminRoomDashboard() {
       console.log('Modal opened, using existing data...');
     }
   }, [showOptionModal]);
+
+  // Auto-fill room type name when room type ID is selected
+  useEffect(() => {
+    if (optionForm.roomTypeId && roomTypes.length > 0) {
+      const selectedRoomType = roomTypes.find(rt => rt.id === Number(optionForm.roomTypeId));
+      if (selectedRoomType) {
+        setOptionForm(prev => ({ ...prev, roomTypeName: selectedRoomType.name }));
+      }
+    }
+  }, [optionForm.roomTypeId, roomTypes]);
 
   const fetchOptions = async () => {
     setLoadingOptions(true);
@@ -450,6 +465,21 @@ export default function AdminRoomDashboard() {
     }
   };
 
+  // Fetch RoomTypes
+  const fetchRoomTypes = async () => {
+    setLoadingRoomTypes(true);
+    try {
+      const res = await api.get("/api/RoomType");
+      console.log("RoomTypes API response:", res.data);
+      setRoomTypes(res.data);
+    } catch (err) {
+      console.error("Error fetching RoomTypes:", err);
+      setRoomTypes([]);
+    } finally {
+      setLoadingRoomTypes(false);
+    }
+  };
+
 
 
   // Create NextUService
@@ -542,6 +572,12 @@ export default function AdminRoomDashboard() {
   const handleCreateOption = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Validate that roomTypeId is selected
+      if (!optionForm.roomTypeId) {
+        setToast("Please select a room type");
+        return;
+      }
+
       await api.post("/api/membership/AccommodationOptions", {
         roomTypeId: Number(optionForm.roomTypeId),
         accmodationOptionName: optionForm.roomTypeName,
@@ -1178,21 +1214,56 @@ export default function AdminRoomDashboard() {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rule Name</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (VND)</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Limit</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Limit/Period</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Note</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {entitlementRules.map((rule) => (
                             <tr key={rule.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{rule.nextUServiceName}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.price.toLocaleString()} VND</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.creditAmount}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.period}</td>
-                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{rule.limitPerPeriod}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {rule.entittlementRuleName || 'N/A'}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-gray-900">{rule.nextUServiceName}</span>
+                                  <span className="text-xs text-gray-400">ID: {rule.nextUServiceId}</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                <span className="font-mono bg-green-50 text-green-700 px-2 py-1 rounded text-xs">
+                                  {rule.price.toLocaleString()} ₫
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                                  {rule.creditAmount}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  rule.period === 0 
+                                    ? 'bg-purple-50 text-purple-700' 
+                                    : 'bg-orange-50 text-orange-700'
+                                }`}>
+                                  {rule.period === 0 ? 'Week' : 'Month'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-xs font-medium">
+                                  {rule.limitPerPeriod}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-500 max-w-xs">
+                                <div className="truncate" title={rule.note || 'No note'}>
+                                  {rule.note || 'No note'}
+                                </div>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1222,14 +1293,27 @@ export default function AdminRoomDashboard() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Space Type ID *</label>
-                  <input
-                    type="number"
+                  {loadingRoomTypes ? (
+                    <div className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      <span className="text-gray-500 text-sm">Loading room types...</span>
+                    </div>
+                  ) : (
+                    <select
                     required
-                    placeholder="Enter room type id..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
                     value={optionForm.roomTypeId}
                     onChange={e => setOptionForm(f => ({ ...f, roomTypeId: e.target.value }))}
-                  />
+                    >
+                      <option value="">-- Select Room Type --</option>
+                      {roomTypes.map(roomType => (
+                        <option key={roomType.id} value={roomType.id}>
+                          {roomType.name} - {roomType.description}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Select from available room types</p>
                 </div>
               </div>
               
